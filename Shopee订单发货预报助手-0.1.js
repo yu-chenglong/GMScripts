@@ -320,40 +320,13 @@
         }
 
         async performCheckSequence(initialState) {
-            // 使用 async/await 替代嵌套的 Promise
-            this.checkbox.focus();
-            DOMHelper.triggerMouseEvent(this.checkbox, 'mouseover');
-            await DOMHelper.delay(20);
-
-            DOMHelper.triggerMouseEvent(this.checkbox, 'mousedown');
-            await DOMHelper.delay(20);
-
-            this.checkbox.checked = !initialState;
-            await DOMHelper.delay(20);
-
-            DOMHelper.triggerMouseEvent(this.checkbox, 'mouseup');
-            await DOMHelper.delay(20);
-
+            // 直接触发 click 事件
             DOMHelper.triggerMouseEvent(this.checkbox, 'click');
-            await DOMHelper.delay(20);
+            await DOMHelper.delay(20); // 等待一段时间让框架处理变更
 
-            DOMHelper.triggerKeyboardEvent(this.checkbox, 32);
-            await DOMHelper.delay(20);
-
+            // 手动触发 change 事件，确保框架能接收到状态变更
             const changeEvent = new Event('change', { bubbles: true });
             this.checkbox.dispatchEvent(changeEvent);
-
-            const parentLabel = this.checkbox.closest('label');
-            if (parentLabel && parentLabel !== this.checkbox) {
-                console.log('找到父级label元素，尝试点击...');
-                DOMHelper.triggerMouseEvent(parentLabel, 'click');
-            }
-
-            const customCheckbox = this.checkbox.closest('.eds-checkbox');
-            if (customCheckbox && customCheckbox !== this.checkbox) {
-                console.log('找到自定义复选框包装元素，尝试点击...');
-                DOMHelper.triggerMouseEvent(customCheckbox, 'click');
-            }
         }
     }
 
