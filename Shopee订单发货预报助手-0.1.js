@@ -145,7 +145,7 @@
             border: 1px solid #ced4da;
             border-radius: 0.25rem;
             transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-            min-height: 150px; /* 增加输入框高度 */
+            min-height: 250px; /* 增加输入框高度 */
             resize: vertical; /* 允许垂直调整大小 */
         }
 
