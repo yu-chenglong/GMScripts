@@ -224,47 +224,6 @@
             }
         }
 
-        static triggerKeyboardEvent(element, keyCode) {
-            if (!element) {
-                console.log(`无法触发键盘事件：元素不存在`);
-                return;
-            }
-
-            try {
-                const event = new KeyboardEvent('keydown', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: this.getWindow(),
-                    keyCode: keyCode,
-                    which: keyCode,
-                    key: String.fromCharCode(keyCode),
-                    code: 'Space',
-                    location: 0,
-                    repeat: false,
-                    isComposing: false
-                });
-                element.dispatchEvent(event);
-
-                const keyupEvent = new KeyboardEvent('keyup', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: this.getWindow(),
-                    keyCode: keyCode,
-                    which: keyCode,
-                    key: String.fromCharCode(keyCode),
-                    code: 'Space',
-                    location: 0,
-                    repeat: false,
-                    isComposing: false
-                });
-                element.dispatchEvent(keyupEvent);
-
-                console.log(`触发键盘事件: ${String.fromCharCode(keyCode)} (${keyCode})`);
-            } catch (error) {
-                console.error('触发键盘事件时出错:', error);
-            }
-        }
-
         static async delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
