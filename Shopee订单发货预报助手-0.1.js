@@ -242,71 +242,69 @@
         }
     };
 
+    const createElement = (tag, className, textContent = '', attributes = {}) => {
+        const element = document.createElement(tag);
+        if (className) {
+            element.classList.add(...className.split(' '));
+        }
+        if (textContent) {
+            element.textContent = textContent;
+        }
+        for (const [key, value] of Object.entries(attributes)) {
+            element.setAttribute(key, value);
+        }
+        return element;
+    };
+
     const createModal = () => {
         // 创建模态框
-        const modal = document.createElement("div");
-        modal.classList.add("custom-modal");
-        modal.id = "trackingNumberModal";
+        const modal = createElement('div', 'custom-modal', '', { id: 'trackingNumberModal' });
         document.body.appendChild(modal);
 
-        const modalDialog = document.createElement("div");
-        modalDialog.classList.add("custom-modal-dialog");
+        const modalDialog = createElement('div', 'custom-modal-dialog');
         modal.appendChild(modalDialog);
 
-        const modalContent = document.createElement("div");
-        modalContent.classList.add("custom-modal-content");
+        const modalContent = createElement('div', 'custom-modal-content');
         modalDialog.appendChild(modalContent);
 
-        const modalHeader = document.createElement("div");
-        modalHeader.classList.add("custom-modal-header");
+        const modalHeader = createElement('div', 'custom-modal-header');
         modalContent.appendChild(modalHeader);
 
-        const modalTitle = document.createElement("h5");
-        modalTitle.classList.add("custom-modal-title");
-        modalTitle.textContent = "输入追踪号";
+        const modalTitle = createElement('h5', 'custom-modal-title', '输入追踪号');
         modalHeader.appendChild(modalTitle);
 
-        const closeButton = document.createElement("button");
-        closeButton.classList.add("custom-close");
-        closeButton.setAttribute("aria-label", "Close");
-        closeButton.innerHTML = "&times;";
-        closeButton.addEventListener("click", () => {
-            modal.style.display = "none";
+        const closeButton = createElement('button', 'custom-close', '×', { 'aria-label': 'Close' });
+        closeButton.addEventListener('click', () => {
+            modal.style.display = 'none';
         });
         modalHeader.appendChild(closeButton);
 
-        const modalBody = document.createElement("div");
-        modalBody.classList.add("custom-modal-body");
+        const modalBody = createElement('div', 'custom-modal-body');
         modalContent.appendChild(modalBody);
 
-        const input = document.createElement("textarea");
-        input.classList.add("custom-form-control");
-        input.placeholder = "请输入一个或多个包裹追踪号，每行一个";
+        const input = createElement('textarea', 'custom-form-control', '', { placeholder: '请输入一个或多个包裹追踪号，每行一个' });
         modalBody.appendChild(input);
 
-        const modalFooter = document.createElement("div");
-        modalFooter.classList.add("custom-modal-footer");
+        const modalFooter = createElement('div', 'custom-modal-footer');
         modalContent.appendChild(modalFooter);
 
-        const searchButton = document.createElement("button");
-        searchButton.classList.add("custom-btn", "custom-btn-primary");
-        searchButton.textContent = "搜索";
-        searchButton.addEventListener("click", async () => {
+        const searchButton = createElement('button', 'custom-btn custom-btn-primary', '搜索');
+        searchButton.addEventListener('click', async () => {
             try {
-                console.log("搜索按钮点击事件触发");
+                console.log('搜索按钮点击事件触发');
                 const trackingNumbers = input.value
-                    .split("\n")
+                    .split('\n')
                     .map((num) => num.trim())
                     .filter((num) => num);
-                console.log("追踪号列表:", trackingNumbers);
+                console.log('追踪号列表:', trackingNumbers);
 
                 if (trackingNumbers.length === 0) {
-                    alert("请输入至少一个追踪号");
+                    alert('请输入至少一个追踪号');
                     return;
                 }
 
                 searchButton.disabled = true;
-                searchButton.textContent = "处理中...";
+                searchButton.textContent = '处理中...';
 
                 const notFoundNumbers = [...trackingNumbers];
                 const results = { success: 0, failed: 0, skipped: 0 };
@@ -314,22 +312,20 @@
                 await searchAndCheck(trackingNumbers, results, notFoundNumbers);
 
                 searchButton.disabled = false;
-                searchButton.textContent = "搜索";
-                modal.style.display = "none";
+                searchButton.textContent = '搜索';
+                modal.style.display = 'none';
 
                 showResults(results, notFoundNumbers);
             } catch (error) {
-                console.error("搜索过程中出错:", error);
-                alert("搜索过程中出错: " + error.message);
+                console.error('搜索过程中出错:', error);
+                alert('搜索过程中出错: ' + error.message);
             }
         });
         modalFooter.appendChild(searchButton);
 
-        const cancelButton = document.createElement("button");
-        cancelButton.classList.add("custom-btn", "custom-btn-secondary");
-        cancelButton.textContent = "取消";
-        cancelButton.addEventListener("click", () => {
-            modal.style.display = "none";
+        const cancelButton = createElement('button', 'custom-btn custom-btn-secondary', '取消');
+        cancelButton.addEventListener('click', () => {
+            modal.style.display = 'none';
         });
         modalFooter.appendChild(cancelButton);
 
@@ -469,6 +465,8 @@
     // 注册油猴菜单命令
     GM_registerMenuCommand("输入追踪号", () => {
         modal.style.display = "block";
+        input.value = ''; // 清空输入框
+        input.placeholder = "请输入一个或多个包裹追踪号，每行一个";
         input.focus();
     });
 })();
