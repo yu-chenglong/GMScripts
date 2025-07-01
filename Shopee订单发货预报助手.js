@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Shopee订单发货预报助手
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      1.2
 // @description  在Shopee卖家中心通过油猴菜单输入追踪号并自动勾选对应订单
-// @author       Leo
+// @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
