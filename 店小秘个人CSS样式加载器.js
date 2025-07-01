@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.2
 // @description  使用对象格式集中管理并加载针对店小秘域名的所有个人自定义CSS样式
-// @author       You
+// @author       Yu Chenglong
 // @match        https://www.dianxiaomi.com/*
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
