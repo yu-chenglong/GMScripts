@@ -11,10 +11,10 @@
 // ==/UserScript==
 
 (function () {
-    "use strict";
+  "use strict";
 
-    // 添加自定义 CSS 样式
-    GM_addStyle(`
+  // 添加自定义 CSS 样式
+  GM_addStyle(`
         .custom-modal {
             display: none;
             position: fixed;
@@ -166,306 +166,336 @@
         }
     `);
 
-    const getWindow = () =>
-        typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+  const getWindow = () =>
+    typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
 
-    const triggerMouseEvent = (element, eventType) => {
-        if (!element) {
-            console.log(`无法触发 ${eventType} 事件：元素不存在`);
-            return;
-        }
-        try {
-            const rect = element.getBoundingClientRect();
-            const event = new MouseEvent(eventType, {
-                bubbles: true,
-                cancelable: true,
-                view: getWindow(),
-                detail: 1,
-                screenX: rect.left + 5,
-                screenY: rect.top + 5,
-                clientX: rect.left + 5,
-                clientY: rect.top + 5,
-                button: 0,
-                relatedTarget: null,
-            });
-            element.dispatchEvent(event);
-            console.log(`触发 ${eventType} 事件`);
-        } catch (error) {
-            console.error(`触发 ${eventType} 事件时出错:`, error);
-        }
-    };
+  const triggerMouseEvent = (element, eventType) => {
+    if (!element) {
+      console.log(`无法触发 ${eventType} 事件：元素不存在`);
+      return;
+    }
+    try {
+      const rect = element.getBoundingClientRect();
+      const event = new MouseEvent(eventType, {
+        bubbles: true,
+        cancelable: true,
+        view: getWindow(),
+        detail: 1,
+        screenX: rect.left + 5,
+        screenY: rect.top + 5,
+        clientX: rect.left + 5,
+        clientY: rect.top + 5,
+        button: 0,
+        relatedTarget: null,
+      });
+      element.dispatchEvent(event);
+      console.log(`触发 ${eventType} 事件`);
+    } catch (error) {
+      console.error(`触发 ${eventType} 事件时出错:`, error);
+    }
+  };
 
-    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const checkCheckbox = async (checkbox, trackingNumber) => {
-        if (!checkbox) {
-            console.log(`无法勾选复选框：元素不存在 (${trackingNumber})`);
-            return false;
-        }
-        console.log(`开始勾选复选框: ${trackingNumber}`);
-        checkbox.classList.add("debug-checkbox");
+  const checkCheckbox = async (checkbox, trackingNumber) => {
+    if (!checkbox) {
+      console.log(`无法勾选复选框：元素不存在 (${trackingNumber})`);
+      return false;
+    }
+    console.log(`开始勾选复选框: ${trackingNumber}`);
+    checkbox.classList.add("debug-checkbox");
 
-        try {
-            const initialState = checkbox.checked;
+    try {
+      const initialState = checkbox.checked;
 
-            // 按顺序执行事件序列
-            triggerMouseEvent(checkbox, "click");
-            await delay(20); // 等待一段时间让框架处理变更
+      // 按顺序执行事件序列
+      triggerMouseEvent(checkbox, "click");
+      await delay(20); // 等待一段时间让框架处理变更
 
-            // 手动触发 change 事件，确保框架能接收到状态变更
-            const changeEvent = new Event("change", { bubbles: true });
-            checkbox.dispatchEvent(changeEvent);
+      // 手动触发 change 事件，确保框架能接收到状态变更
+      const changeEvent = new Event("change", { bubbles: true });
+      checkbox.dispatchEvent(changeEvent);
 
-            // 等待一段时间让框架处理变更
-            await delay(20);
+      // 等待一段时间让框架处理变更
+      await delay(20);
 
-            // 验证最终状态
-            const finalState = checkbox.checked;
-            const isSuccess = finalState !== initialState;
+      // 验证最终状态
+      const finalState = checkbox.checked;
+      const isSuccess = finalState !== initialState;
 
-            if (isSuccess) {
-                console.log(`✅ 成功勾选复选框: ${trackingNumber}`);
-                checkbox.classList.remove("debug-checkbox");
-                checkbox.classList.add("checked-checkbox");
+      if (isSuccess) {
+        console.log(`✅ 成功勾选复选框: ${trackingNumber}`);
+        checkbox.classList.remove("debug-checkbox");
+        checkbox.classList.add("checked-checkbox");
 
-                setTimeout(() => {
-                    checkbox.classList.remove("checked-checkbox");
-                }, 3000);
-            } else {
-                console.log(`❌ 勾选失败: ${trackingNumber} (状态未改变)`);
-            }
+        setTimeout(() => {
+          checkbox.classList.remove("checked-checkbox");
+        }, 3000);
+      } else {
+        console.log(`❌ 勾选失败: ${trackingNumber} (状态未改变)`);
+      }
 
-            return isSuccess;
-        } catch (error) {
-            console.error(`勾选复选框时出错 (${trackingNumber}):`, error);
-            return false;
-        }
-    };
+      return isSuccess;
+    } catch (error) {
+      console.error(`勾选复选框时出错 (${trackingNumber}):`, error);
+      return false;
+    }
+  };
 
-    const createElement = (tag, className, textContent = '', attributes = {}) => {
-        const element = document.createElement(tag);
-        if (className) {
-            element.classList.add(...className.split(' '));
-        }
-        if (textContent) {
-            element.textContent = textContent;
-        }
-        for (const [key, value] of Object.entries(attributes)) {
-            element.setAttribute(key, value);
-        }
-        return element;
-    };
+  const createElement = (tag, className, textContent = "", attributes = {}) => {
+    const element = document.createElement(tag);
+    if (className) {
+      element.classList.add(...className.split(" "));
+    }
+    if (textContent) {
+      element.textContent = textContent;
+    }
+    for (const [key, value] of Object.entries(attributes)) {
+      element.setAttribute(key, value);
+    }
+    return element;
+  };
 
-    const createModal = () => {
-        // 创建模态框
-        const modal = createElement('div', 'custom-modal', '', { id: 'trackingNumberModal' });
-        document.body.appendChild(modal);
-
-        const modalDialog = createElement('div', 'custom-modal-dialog');
-        modal.appendChild(modalDialog);
-
-        const modalContent = createElement('div', 'custom-modal-content');
-        modalDialog.appendChild(modalContent);
-
-        const modalHeader = createElement('div', 'custom-modal-header');
-        modalContent.appendChild(modalHeader);
-
-        const modalTitle = createElement('h5', 'custom-modal-title', '输入追踪号');
-        modalHeader.appendChild(modalTitle);
-
-        const closeButton = createElement('button', 'custom-close', '×', { 'aria-label': 'Close' });
-        closeButton.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-        modalHeader.appendChild(closeButton);
-
-        const modalBody = createElement('div', 'custom-modal-body');
-        modalContent.appendChild(modalBody);
-
-        const input = createElement('textarea', 'custom-form-control', '', { placeholder: '请输入一个或多个包裹追踪号，每行一个' });
-        modalBody.appendChild(input);
-
-        const modalFooter = createElement('div', 'custom-modal-footer');
-        modalContent.appendChild(modalFooter);
-
-        const searchButton = createElement('button', 'custom-btn custom-btn-primary', '搜索');
-        searchButton.addEventListener('click', async () => {
-            try {
-                console.log('搜索按钮点击事件触发');
-                const trackingNumbers = input.value
-                    .split('\n')
-                    .map((num) => num.trim())
-                    .filter((num) => num);
-                console.log('追踪号列表:', trackingNumbers);
-
-                if (trackingNumbers.length === 0) {
-                    alert('请输入至少一个追踪号');
-                    return;
-                }
-
-                searchButton.disabled = true;
-                searchButton.textContent = '处理中...';
-
-                const notFoundNumbers = [...trackingNumbers];
-                const results = { success: 0, failed: 0, skipped: 0 };
-
-                await searchAndCheck(trackingNumbers, results, notFoundNumbers);
-
-                searchButton.disabled = false;
-                searchButton.textContent = '搜索';
-                modal.style.display = 'none';
-
-                showResults(results, notFoundNumbers);
-            } catch (error) {
-                console.error('搜索过程中出错:', error);
-                alert('搜索过程中出错: ' + error.message);
-            }
-        });
-        modalFooter.appendChild(searchButton);
-
-        const cancelButton = createElement('button', 'custom-btn custom-btn-secondary', '取消');
-        cancelButton.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-        modalFooter.appendChild(cancelButton);
-
-        return { modal, input };
-    };
-
-    const searchAndCheck = async (trackingNumbers, results, notFoundNumbers) => {
-        console.log("开始搜索和勾选操作");
-
-        // 查找表格
-        const table = document.querySelector("table.eds-table__body");
-        if (!table) {
-            console.log("未找到订单表格");
-            alert("未找到订单表格，请确保页面已完全加载");
-            return;
-        }
-        console.log("已找到订单表格");
-
-        // 查找包裹追踪号列的索引
-        const headerRow = document.querySelector(
-            "table.eds-table__header thead tr"
-        );
-        if (!headerRow) {
-            console.log("未找到表格头部");
-            alert("未找到表格头部，请确保页面已完全加载");
-            return;
-        }
-
-        const headers = Array.from(headerRow.querySelectorAll("th"));
-        let trackingNumberIndex = -1;
-        headers.forEach((header, index) => {
-            const label = header.querySelector(".eds-table__cell-label");
-            if (label && label.textContent === "包裹追踪号") {
-                trackingNumberIndex = index;
-            }
-        });
-
-        if (trackingNumberIndex === -1) {
-            console.log('未找到"包裹追踪号"列');
-            alert('未找到"包裹追踪号"列，请检查页面结构是否已更新');
-            return;
-        }
-        console.log(`"包裹追踪号"列索引: ${trackingNumberIndex}`);
-
-        // 遍历每一行，搜索追踪号
-        const rows = table.querySelectorAll("tr.eds-table__row");
-        console.log(`找到 ${rows.length} 个订单行`);
-
-        if (rows.length === 0) {
-            alert("未找到任何订单行");
-            return;
-        }
-
-        // 创建匹配的行列表
-        const matchingRows = [];
-
-        rows.forEach((row) => {
-            const cells = row.querySelectorAll("td");
-            const trackingNumberCell = cells[trackingNumberIndex];
-            if (!trackingNumberCell) return;
-
-            const trackingNumber = trackingNumberCell.textContent.trim();
-
-            trackingNumbers.forEach((num) => {
-                if (trackingNumber.includes(num)) {
-                    matchingRows.push({ row, trackingNumber: num });
-
-                    // 从"未找到"列表中移除
-                    const index = notFoundNumbers.indexOf(num);
-                    if (index > -1) {
-                        notFoundNumbers.splice(index, 1);
-                    }
-                }
-            });
-        });
-
-        console.log(`找到 ${matchingRows.length} 个匹配的订单`);
-
-        if (matchingRows.length === 0) {
-            alert(`未找到任何匹配的追踪号`);
-            return;
-        }
-
-        // 顺序处理匹配的行
-        for (const { row, trackingNumber } of matchingRows) {
-            console.log(`处理订单: ${trackingNumber}`);
-            await processRow(row, trackingNumber, results);
-            await delay(500); // 处理间隔，避免过快
-        }
-    };
-
-    const processRow = async (row, trackingNumber, results) => {
-        const checkbox = row.querySelector(".eds-checkbox__input");
-
-        if (!checkbox) {
-            console.log(`❌ 未找到复选框元素: ${trackingNumber}`);
-            results.skipped++;
-            return;
-        }
-
-        // 检查复选框当前状态
-        const initialState = checkbox.checked;
-        console.log(`复选框初始状态: ${initialState ? "已勾选" : "未勾选"}`);
-
-        // 如果已经是目标状态，则跳过
-        if (initialState) {
-            console.log(`✅ 复选框已勾选，跳过: ${trackingNumber}`);
-            results.skipped++;
-            return;
-        }
-
-        // 尝试勾选
-        const isSuccess = await checkCheckbox(checkbox, trackingNumber);
-
-        if (isSuccess) {
-            results.success++;
-        } else {
-            results.failed++;
-        }
-    };
-
-    const showResults = (results, notFoundNumbers) => {
-        // 显示结果统计
-        let message = `处理完成!\n成功勾选: ${results.success}\n勾选失败: ${results.failed}\n未找到: ${notFoundNumbers.length}`;
-
-        if (notFoundNumbers.length > 0) {
-            message += `\n\n未找到的追踪号 (${notFoundNumbers.length
-                }):\n${notFoundNumbers.join("\n")}`;
-        }
-
-        alert(message);
-    };
-
-    const { modal, input } = createModal();
-
-    // 注册油猴菜单命令
-    GM_registerMenuCommand("输入追踪号", () => {
-        modal.style.display = "block";
-        input.value = ''; // 清空输入框
-        input.placeholder = "请输入一个或多个包裹追踪号，每行一个";
-        input.focus();
+  const createModal = () => {
+    // 创建模态框
+    const modal = createElement("div", "custom-modal", "", {
+      id: "trackingNumberModal",
     });
+    document.body.appendChild(modal);
+
+    const modalDialog = createElement("div", "custom-modal-dialog");
+    modal.appendChild(modalDialog);
+
+    const modalContent = createElement("div", "custom-modal-content");
+    modalDialog.appendChild(modalContent);
+
+    const modalHeader = createElement("div", "custom-modal-header");
+    modalContent.appendChild(modalHeader);
+
+    const modalTitle = createElement("h5", "custom-modal-title", "输入追踪号");
+    modalHeader.appendChild(modalTitle);
+
+    const closeButton = createElement("button", "custom-close", "×", {
+      "aria-label": "Close",
+    });
+    closeButton.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modalHeader.appendChild(closeButton);
+
+    const modalBody = createElement("div", "custom-modal-body");
+    modalContent.appendChild(modalBody);
+
+    const input = createElement("textarea", "custom-form-control", "", {
+      placeholder: "请输入一个或多个包裹追踪号，每行一个",
+    });
+    modalBody.appendChild(input);
+
+    const modalFooter = createElement("div", "custom-modal-footer");
+    modalContent.appendChild(modalFooter);
+
+    const searchButton = createElement(
+      "button",
+      "custom-btn custom-btn-primary",
+      "搜索"
+    );
+    searchButton.addEventListener("click", async () => {
+      try {
+        console.log("搜索按钮点击事件触发");
+        const trackingNumbers = input.value
+          .split("\n")
+          .map((num) => num.trim())
+          .filter((num) => num);
+        console.log("追踪号列表:", trackingNumbers);
+
+        if (trackingNumbers.length === 0) {
+          alert("请输入至少一个追踪号");
+          return;
+        }
+
+        searchButton.disabled = true;
+        searchButton.textContent = "处理中...";
+
+        const notFoundNumbers = [...trackingNumbers];
+        const results = { success: 0, failed: 0, skipped: 0 };
+
+        await searchAndCheck(trackingNumbers, results, notFoundNumbers);
+
+        searchButton.disabled = false;
+        searchButton.textContent = "搜索";
+        modal.style.display = "none";
+
+        showResults(results, notFoundNumbers);
+      } catch (error) {
+        console.error("搜索过程中出错:", error);
+        alert("搜索过程中出错: " + error.message);
+      }
+    });
+    modalFooter.appendChild(searchButton);
+
+    const cancelButton = createElement(
+      "button",
+      "custom-btn custom-btn-secondary",
+      "取消"
+    );
+    cancelButton.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modalFooter.appendChild(cancelButton);
+
+    return { modal, input };
+  };
+
+  const searchAndCheck = async (trackingNumbers, results, notFoundNumbers) => {
+    console.log("开始搜索和勾选操作");
+
+    // 查找表格
+    const table = document.querySelector("table.eds-table__body");
+    if (!table) {
+      console.log("未找到订单表格");
+      alert("未找到订单表格，请确保页面已完全加载");
+      return;
+    }
+    console.log("已找到订单表格");
+
+    // 查找包裹追踪号列的索引
+    const headerRow = document.querySelector(
+      "table.eds-table__header thead tr"
+    );
+    if (!headerRow) {
+      console.log("未找到表格头部");
+      alert("未找到表格头部，请确保页面已完全加载");
+      return;
+    }
+
+    const headers = Array.from(headerRow.querySelectorAll("th"));
+    // let trackingNumberIndex = -1;
+    // headers.forEach((header, index) => {
+    //     const label = header.querySelector(".eds-table__cell-label");
+    //     if (label && (label.textContent === "包裹追踪号" || label.textContent === "Tracking Number")) {
+    //         trackingNumberIndex = index;
+    //     }
+    // });
+
+    // if (trackingNumberIndex === -1) {
+    //     console.log('未找到"包裹追踪号"列');
+    //     alert('未找到"包裹追踪号"列，请检查页面结构是否已更新');
+    //     return;
+    // }
+    function isTrackingNumberLabel(element) {
+      if (!element) return false;
+      // 移除所有非单词字符并转为小写（针对英文）
+      const text = (element.textContent || "").replace(/\W/g, "").toLowerCase();
+      return ["包裹追踪号", "trackingnumber"].includes(text);
+    }
+    const trackingNumberIndex = headers.findIndex((header) =>
+      isTrackingNumberLabel(header.querySelector(".eds-table__cell-label"))
+    );
+
+    if (trackingNumberIndex === -1) {
+      console.log('未找到"包裹追踪号"列');
+      alert('未找到"包裹追踪号"列，请检查页面结构是否已更新');
+      return;
+    }
+    console.log(`"包裹追踪号"列索引: ${trackingNumberIndex}`);
+
+    // 遍历每一行，搜索追踪号
+    const rows = table.querySelectorAll("tr.eds-table__row");
+    console.log(`找到 ${rows.length} 个订单行`);
+
+    if (rows.length === 0) {
+      alert("未找到任何订单行");
+      return;
+    }
+
+    // 创建匹配的行列表
+    const matchingRows = [];
+
+    rows.forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      const trackingNumberCell = cells[trackingNumberIndex];
+      if (!trackingNumberCell) return;
+
+      const trackingNumber = trackingNumberCell.textContent.trim();
+
+      trackingNumbers.forEach((num) => {
+        if (trackingNumber.includes(num)) {
+          matchingRows.push({ row, trackingNumber: num });
+
+          // 从"未找到"列表中移除
+          const index = notFoundNumbers.indexOf(num);
+          if (index > -1) {
+            notFoundNumbers.splice(index, 1);
+          }
+        }
+      });
+    });
+
+    console.log(`找到 ${matchingRows.length} 个匹配的订单`);
+
+    if (matchingRows.length === 0) {
+      alert(`未找到任何匹配的追踪号`);
+      return;
+    }
+
+    // 顺序处理匹配的行
+    for (const { row, trackingNumber } of matchingRows) {
+      console.log(`处理订单: ${trackingNumber}`);
+      await processRow(row, trackingNumber, results);
+      await delay(500); // 处理间隔，避免过快
+    }
+  };
+
+  const processRow = async (row, trackingNumber, results) => {
+    const checkbox = row.querySelector(".eds-checkbox__input");
+
+    if (!checkbox) {
+      console.log(`❌ 未找到复选框元素: ${trackingNumber}`);
+      results.skipped++;
+      return;
+    }
+
+    // 检查复选框当前状态
+    const initialState = checkbox.checked;
+    console.log(`复选框初始状态: ${initialState ? "已勾选" : "未勾选"}`);
+
+    // 如果已经是目标状态，则跳过
+    if (initialState) {
+      console.log(`✅ 复选框已勾选，跳过: ${trackingNumber}`);
+      results.skipped++;
+      return;
+    }
+
+    // 尝试勾选
+    const isSuccess = await checkCheckbox(checkbox, trackingNumber);
+
+    if (isSuccess) {
+      results.success++;
+    } else {
+      results.failed++;
+    }
+  };
+
+  const showResults = (results, notFoundNumbers) => {
+    // 显示结果统计
+    let message = `处理完成!\n成功勾选: ${results.success}\n勾选失败: ${results.failed}\n未找到: ${notFoundNumbers.length}`;
+
+    if (notFoundNumbers.length > 0) {
+      message += `\n\n未找到的追踪号 (${
+        notFoundNumbers.length
+      }):\n${notFoundNumbers.join("\n")}`;
+    }
+
+    alert(message);
+  };
+
+  const { modal, input } = createModal();
+
+  // 注册油猴菜单命令
+  GM_registerMenuCommand("输入追踪号", () => {
+    modal.style.display = "block";
+    input.value = ""; // 清空输入框
+    input.placeholder = "请输入一个或多个包裹追踪号，每行一个";
+    input.focus();
+  });
 })();
