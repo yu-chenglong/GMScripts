@@ -358,46 +358,8 @@
     }
     console.log("已找到订单表格");
 
-    // 查找包裹追踪号列的索引
-    const headerRow = document.querySelector(
-      "table.eds-table__header thead tr"
-    );
-    if (!headerRow) {
-      console.log("未找到表格头部");
-      alert("未找到表格头部，请确保页面已完全加载");
-      return;
-    }
-
-    const headers = Array.from(headerRow.querySelectorAll("th"));
-    // let trackingNumberIndex = -1;
-    // headers.forEach((header, index) => {
-    //     const label = header.querySelector(".eds-table__cell-label");
-    //     if (label && (label.textContent === "包裹追踪号" || label.textContent === "Tracking Number")) {
-    //         trackingNumberIndex = index;
-    //     }
-    // });
-
-    // if (trackingNumberIndex === -1) {
-    //     console.log('未找到"包裹追踪号"列');
-    //     alert('未找到"包裹追踪号"列，请检查页面结构是否已更新');
-    //     return;
-    // }
-    function isTrackingNumberLabel(element) {
-      if (!element) return false;
-      // 移除所有非单词字符并转为小写（针对英文）
-      const text = (element.textContent || "").replace(/\W/g, "").toLowerCase();
-      return ["包裹追踪号", "trackingnumber"].includes(text);
-    }
-    const trackingNumberIndex = headers.findIndex((header) =>
-      isTrackingNumberLabel(header.querySelector(".eds-table__cell-label"))
-    );
-
-    if (trackingNumberIndex === -1) {
-      console.log('未找到"包裹追踪号"列');
-      alert('未找到"包裹追踪号"列，请检查页面结构是否已更新');
-      return;
-    }
-    console.log(`"包裹追踪号"列索引: ${trackingNumberIndex}`);
+    // 包裹追踪号是表格里的第4列（索引3）
+    const trackingNumberIndex = 3
 
     // 遍历每一行，搜索追踪号
     const rows = table.querySelectorAll("tr.eds-table__row");
