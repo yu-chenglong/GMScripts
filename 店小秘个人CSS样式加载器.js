@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.2
 // @description  使用对象格式集中管理并加载针对店小秘域名的所有个人自定义CSS样式
-// @author       Yu Chenglong
+// @author       You
 // @match        https://www.dianxiaomi.com/*
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -20,18 +20,42 @@
       enabled: true,
       rules: {
         ".modal-dialog": {
-          "width": "1300px",
+          "width": "1100px",
           "max-width": "90%",
           "transition": "width 0.3s ease",
         },
         ".modal-body.tab-content": {
-          "max-height": "750px",
+          "max-height": "700px",
           "overflow-y": "auto",
           "padding": "15px",
         },
         ".modal-header": {
           "background-color": "#f8f9fa",
           "border-bottom": "1px solid #dee2e6",
+        },
+        ".templateOrderRemark": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > th:nth-child(1)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > th:nth-child(4)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > th:nth-child(5)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > td:nth-child(1)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > td:nth-child(4)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > td:nth-child(5)": {
+          "display": "none"
+        },
+        "table#batchCommentTable > tbody > tr > td:nth-child(3)": {
+          "min-width": "300px"
         },
       },
     },
