@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      2.1
 // @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu in the Seller Center
-// @author       Yu Chenglong (Refactored by AI)
+// @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
