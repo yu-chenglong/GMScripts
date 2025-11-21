@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Shopee订单发货预报助手
+// @name         Shopee Order Shipment Pre-declaration Helper
 // @namespace    http://tampermonkey.net/
-// @version      1.2
-// @description  在Shopee卖家中心通过油猴菜单输入追踪号并自动勾选对应订单
-// @author       Yu Chenglong
+// @version      2.1
+// @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu in the Seller Center
+// @author       Yu Chenglong (Refactored by AI)
 // @match        https://seller.shopee.cn/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
@@ -13,422 +13,159 @@
 (function () {
   "use strict";
 
-  // 添加自定义 CSS 样式
+  // --- 1. Custom Styles (Font Size Adjusted) --------------------------------
   GM_addStyle(`
-        .custom-modal {
-            display: none;
-            position: fixed;
-            z-index: 10000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-        }
+    .custom-modal {
+        display: none; position: fixed; z-index: 10000; left: 0; top: 0;
+        width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
+    }
+    .custom-modal-dialog {
+        margin: 15% auto; width: 80%; max-width: 500px;
+    }
+    .custom-modal-content {
+        background-color: #fff; border: 1px solid #888; border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .custom-modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1rem; border-bottom: 1px solid #eee; background-color: #0d6efd;
+        color: #fff; border-radius: 4px 4px 0 0;
+    }
+    .custom-modal-title {
+        margin: 0; font-size: 1.35rem; font-weight: bold; /* Slightly larger title */
+    }
+    .custom-close {
+        background: none; border: none; font-size: 1.5rem; color: #fff; opacity: 0.8;
+        cursor: pointer; padding: 0.5rem; line-height: 1; margin: -1rem -1rem -1rem auto;
+    }
+    .custom-modal-body {
+        padding: 1rem;
+    }
+    .custom-modal-footer {
+        display: flex; justify-content: flex-end; padding: 0.75rem; border-top: 1px solid #eee;
+    }
+    .custom-form-control {
+        width: 100%; padding: 0.6rem 0.75rem; font-size: 1.1rem; line-height: 1.6; /* Increased input text size */
+        border: 1px solid #ccc; border-radius: 4px; min-height: 150px; resize: vertical;
+        box-sizing: border-box;
+    }
+    .custom-btn {
+        padding: 0.5rem 1rem; font-size: 1.1rem; border-radius: 4px; cursor: pointer; /* Increased button text size */
+        margin-left: 0.5rem; transition: background-color 0.2s;
+    }
+    .custom-btn-primary {
+        color: #fff; background-color: #0d6efd; border: 1px solid #0d6efd;
+    }
+    .custom-btn-primary:hover {
+        background-color: #0b5ed7;
+    }
+    .custom-btn-secondary {
+        color: #333; background-color: #f8f9fa; border: 1px solid #ccc;
+    }
+    .custom-btn-secondary:hover {
+        background-color: #e2e6ea;
+    }
+    .checked-checkbox {
+        outline: 2px solid green !important;
+    }
+  `);
 
-        .custom-modal-dialog {
-            margin: 15% auto;
-            width: 80%;
-            max-width: 500px;
-        }
+  // --- 2. Utility Functions ------------------------------------------
 
-        .custom-modal-content {
-            background-color: #fefefe;
-            border: 1px solid #888;
-            border-radius: 0.3rem;
-            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
-        }
-
-        .custom-modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            border-bottom: 1px solid #dee2e6;
-            background-color: #0d6efd;
-            color: #fff;
-        }
-
-        .custom-modal-title {
-            margin-bottom: 0;
-            line-height: 1.5;
-            font-size: 1.5rem;
-            font-weight: 1000;
-        }
-
-        .custom-close {
-            padding: 1rem;
-            margin: -1rem -1rem -1rem auto;
-            background-color: transparent;
-            border: 0;
-            font-size: 1.5rem;
-            font-weight: 700;
-            line-height: 1;
-            color: #fff;
-            text-shadow: 0 1px 0 #fff;
-            opacity: .5;
-        }
-
-        .custom-close:hover {
-            color: #000;
-            text-decoration: none;
-            opacity: .75;
-        }
-
-        .custom-modal-body {
-            position: relative;
-            padding: 1rem;
-        }
-
-        .custom-modal-footer {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-end;
-            padding: 0.75rem;
-            border-top: 1px solid #dee2e6;
-        }
-
-        .custom-btn {
-            margin: 0.5em;
-            display: inline-block;
-            font-weight: 400;
-            color: #212529;
-            text-align: center;
-            vertical-align: middle;
-            cursor: pointer;
-            user-select: none;
-            background-color: transparent;
-            border: 1px solid transparent;
-            padding: 0.375rem 0.75rem;
-            font-size: 1.5rem;
-            line-height: 1.5;
-            border-radius: 0.25rem;
-            transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-
-        .custom-btn-primary {
-            color: #fff;
-            background-color: #0d6efd;
-            border-color: #0d6efd;
-        }
-
-        .custom-btn-primary:hover {
-            color: #fff;
-            background-color: #0b5ed7;
-            border-color: #0a58ca;
-        }
-
-        .custom-btn-secondary {
-            color: #fff;
-            background-color: #6c757d;
-            border-color: #6c757d;
-        }
-
-        .custom-btn-secondary:hover {
-            color: #fff;
-            background-color: #5c636a;
-            border-color: #565e64;
-        }
-
-        .custom-form-control {
-            display: block;
-            width: 100%;
-            padding: 0.375rem 0.75rem;
-            font-size: 1.5rem;
-            font-weight: 400;
-            line-height: 1.5;
-            color: #212529;
-            background-color: #fff;
-            background-clip: padding-box;
-            border: 1px solid #ced4da;
-            border-radius: 0.25rem;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-            min-height: 250px; /* 增加输入框高度 */
-            resize: vertical; /* 允许垂直调整大小 */
-        }
-
-        .custom-form-control:focus {
-            color: #212529;
-            background-color: #fff;
-            border-color: #86b7fe;
-            outline: 0;
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-
-        .debug-checkbox {
-            outline: 2px solid red !important;
-        }
-
-        .checked-checkbox {
-            outline: 2px solid green !important;
-        }
-    `);
-
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const getWindow = () =>
     typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
 
-  const triggerMouseEvent = (element, eventType) => {
-    if (!element) {
-      console.log(`无法触发 ${eventType} 事件：元素不存在`);
-      return;
-    }
-    try {
-      const rect = element.getBoundingClientRect();
-      const event = new MouseEvent(eventType, {
-        bubbles: true,
-        cancelable: true,
-        view: getWindow(),
-        detail: 1,
-        screenX: rect.left + 5,
-        screenY: rect.top + 5,
-        clientX: rect.left + 5,
-        clientY: rect.top + 5,
-        button: 0,
-        relatedTarget: null,
-      });
-      element.dispatchEvent(event);
-      console.log(`触发 ${eventType} 事件`);
-    } catch (error) {
-      console.error(`触发 ${eventType} 事件时出错:`, error);
-    }
-  };
-
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const checkCheckbox = async (checkbox, trackingNumber) => {
-    if (!checkbox) {
-      console.log(`无法勾选复选框：元素不存在 (${trackingNumber})`);
-      return false;
-    }
-    console.log(`开始勾选复选框: ${trackingNumber}`);
-    checkbox.classList.add("debug-checkbox");
-
-    try {
-      const initialState = checkbox.checked;
-
-      // 按顺序执行事件序列
-      triggerMouseEvent(checkbox, "click");
-      await delay(20); // 等待一段时间让框架处理变更
-
-      // 手动触发 change 事件，确保框架能接收到状态变更
-      const changeEvent = new Event("change", { bubbles: true });
-      checkbox.dispatchEvent(changeEvent);
-
-      // 等待一段时间让框架处理变更
-      await delay(20);
-
-      // 验证最终状态
-      const finalState = checkbox.checked;
-      const isSuccess = finalState !== initialState;
-
-      if (isSuccess) {
-        console.log(`✅ 成功勾选复选框: ${trackingNumber}`);
-        checkbox.classList.remove("debug-checkbox");
-        checkbox.classList.add("checked-checkbox");
-
-        setTimeout(() => {
-          checkbox.classList.remove("checked-checkbox");
-        }, 3000);
-      } else {
-        console.log(`❌ 勾选失败: ${trackingNumber} (状态未改变)`);
-      }
-
-      return isSuccess;
-    } catch (error) {
-      console.error(`勾选复选框时出错 (${trackingNumber}):`, error);
-      return false;
-    }
-  };
-
+  /**
+   * Creates an HTML element with optional class, text, and attributes.
+   */
   const createElement = (tag, className, textContent = "", attributes = {}) => {
     const element = document.createElement(tag);
-    if (className) {
-      element.classList.add(...className.split(" "));
-    }
-    if (textContent) {
-      element.textContent = textContent;
-    }
+    if (className) element.classList.add(...className.split(" "));
+    if (textContent) element.textContent = textContent;
     for (const [key, value] of Object.entries(attributes)) {
       element.setAttribute(key, value);
     }
     return element;
   };
 
-  const createModal = () => {
-    // 创建模态框
-    const modal = createElement("div", "custom-modal", "", {
-      id: "trackingNumberModal",
-    });
-    document.body.appendChild(modal);
-
-    const modalDialog = createElement("div", "custom-modal-dialog");
-    modal.appendChild(modalDialog);
-
-    const modalContent = createElement("div", "custom-modal-content");
-    modalDialog.appendChild(modalContent);
-
-    const modalHeader = createElement("div", "custom-modal-header");
-    modalContent.appendChild(modalHeader);
-
-    const modalTitle = createElement("h5", "custom-modal-title", "输入追踪号");
-    modalHeader.appendChild(modalTitle);
-
-    const closeButton = createElement("button", "custom-close", "×", {
-      "aria-label": "Close",
-    });
-    closeButton.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-    modalHeader.appendChild(closeButton);
-
-    const modalBody = createElement("div", "custom-modal-body");
-    modalContent.appendChild(modalBody);
-
-    const input = createElement("textarea", "custom-form-control", "", {
-      placeholder: "请输入一个或多个包裹追踪号，每行一个",
-    });
-    modalBody.appendChild(input);
-
-    const modalFooter = createElement("div", "custom-modal-footer");
-    modalContent.appendChild(modalFooter);
-
-    const searchButton = createElement(
-      "button",
-      "custom-btn custom-btn-primary",
-      "搜索"
-    );
-    searchButton.addEventListener("click", async () => {
-      try {
-        console.log("搜索按钮点击事件触发");
-        const trackingNumbers = input.value
-          .split("\n")
-          .map((num) => num.trim())
-          .filter((num) => num);
-        console.log("追踪号列表:", trackingNumbers);
-
-        if (trackingNumbers.length === 0) {
-          alert("请输入至少一个追踪号");
-          return;
-        }
-
-        searchButton.disabled = true;
-        searchButton.textContent = "处理中...";
-
-        const notFoundNumbers = [...trackingNumbers];
-        const results = { success: 0, failed: 0, skipped: 0 };
-
-        await searchAndCheck(trackingNumbers, results, notFoundNumbers);
-
-        searchButton.disabled = false;
-        searchButton.textContent = "搜索";
-        modal.style.display = "none";
-
-        showResults(results, notFoundNumbers);
-      } catch (error) {
-        console.error("搜索过程中出错:", error);
-        alert("搜索过程中出错: " + error.message);
-      }
-    });
-    modalFooter.appendChild(searchButton);
-
-    const cancelButton = createElement(
-      "button",
-      "custom-btn custom-btn-secondary",
-      "取消"
-    );
-    cancelButton.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-    modalFooter.appendChild(cancelButton);
-
-    return { modal, input };
-  };
-
-  const searchAndCheck = async (trackingNumbers, results, notFoundNumbers) => {
-    console.log("开始搜索和勾选操作");
-
-    // 查找表格
-    const table = document.querySelector("table.eds-table__body");
-    if (!table) {
-      console.log("未找到订单表格");
-      alert("未找到订单表格，请确保页面已完全加载");
-      return;
-    }
-    console.log("已找到订单表格");
-
-    // 包裹追踪号是表格里的第4列（索引3）
-    const trackingNumberIndex = 3
-
-    // 遍历每一行，搜索追踪号
-    const rows = table.querySelectorAll("tr.eds-table__row");
-    console.log(`找到 ${rows.length} 个订单行`);
-
-    if (rows.length === 0) {
-      alert("未找到任何订单行");
-      return;
-    }
-
-    // 创建匹配的行列表
-    const matchingRows = [];
-
-    rows.forEach((row) => {
-      const cells = row.querySelectorAll("td");
-      const trackingNumberCell = cells[trackingNumberIndex];
-      if (!trackingNumberCell) return;
-
-      const trackingNumber = trackingNumberCell.textContent.trim();
-
-      trackingNumbers.forEach((num) => {
-        if (trackingNumber.includes(num)) {
-          matchingRows.push({ row, trackingNumber: num });
-
-          // 从"未找到"列表中移除
-          const index = notFoundNumbers.indexOf(num);
-          if (index > -1) {
-            notFoundNumbers.splice(index, 1);
-          }
-        }
+  /**
+   * Simulates a mouse or change event on the target element.
+   * @param {HTMLElement} element
+   * @param {string} eventType - e.g., 'click', 'change'
+   */
+  const triggerEvent = (element, eventType) => {
+    if (!element) return;
+    try {
+      const EventClass = eventType === 'click' ? MouseEvent : Event;
+      const event = new EventClass(eventType, {
+        bubbles: true,
+        cancelable: true,
+        view: getWindow(),
       });
-    });
-
-    console.log(`找到 ${matchingRows.length} 个匹配的订单`);
-
-    if (matchingRows.length === 0) {
-      alert(`未找到任何匹配的追踪号`);
-      return;
-    }
-
-    // 顺序处理匹配的行
-    for (const { row, trackingNumber } of matchingRows) {
-      console.log(`处理订单: ${trackingNumber}`);
-      await processRow(row, trackingNumber, results);
-      await delay(500); // 处理间隔，避免过快
+      element.dispatchEvent(event);
+    } catch (error) {
+      GM_log(`Error triggering ${eventType} event: ${error.message}`);
     }
   };
+
+  /**
+   * Attempts to check a checkbox and verifies the state change.
+   * @param {HTMLInputElement} checkbox
+   * @param {string} trackingNumber
+   * @returns {Promise<boolean>} Success status
+   */
+  const checkCheckbox = async (checkbox, trackingNumber) => {
+    if (!checkbox) return false;
+
+    const initialState = checkbox.checked;
+
+    try {
+      // 1. Simulate user click
+      triggerEvent(checkbox, "click");
+      await delay(50); // Give framework time to process click
+
+      // 2. Force a 'change' event in case the click wasn't fully registered
+      triggerEvent(checkbox, "change");
+      await delay(50);
+
+      const finalState = checkbox.checked;
+      const isSuccess = finalState !== initialState;
+
+      if (isSuccess) {
+        GM_log(`✅ Successfully checked: ${trackingNumber}`);
+        checkbox.classList.add("checked-checkbox");
+        setTimeout(() => checkbox.classList.remove("checked-checkbox"), 3000);
+      } else {
+        GM_log(`❌ Check failed (state unchanged): ${trackingNumber}`);
+      }
+
+      return isSuccess;
+    } catch (error) {
+      GM_log(`Error during checkbox operation for ${trackingNumber}: ${error.message}`);
+      return false;
+    }
+  };
+
+  // --- 3. Core Logic -------------------------------------------------
 
   const processRow = async (row, trackingNumber, results) => {
     const checkbox = row.querySelector(".eds-checkbox__input");
 
     if (!checkbox) {
-      console.log(`❌ 未找到复选框元素: ${trackingNumber}`);
+      GM_log(`❌ Checkbox element not found: ${trackingNumber}`);
       results.skipped++;
       return;
     }
 
-    // 检查复选框当前状态
-    const initialState = checkbox.checked;
-    console.log(`复选框初始状态: ${initialState ? "已勾选" : "未勾选"}`);
-
-    // 如果已经是目标状态，则跳过
-    if (initialState) {
-      console.log(`✅ 复选框已勾选，跳过: ${trackingNumber}`);
+    // Skip if already checked
+    if (checkbox.checked) {
+      GM_log(`✅ Already checked, skipping: ${trackingNumber}`);
       results.skipped++;
       return;
     }
 
-    // 尝试勾选
+    // Attempt to check
     const isSuccess = await checkCheckbox(checkbox, trackingNumber);
 
     if (isSuccess) {
@@ -438,26 +175,150 @@
     }
   };
 
+  const searchAndCheck = async (trackingNumbers, results, notFoundNumbers) => {
+    const table = document.querySelector("table.eds-table__body");
+    if (!table) {
+      alert("Order table not found. Please ensure the page is fully loaded.");
+      return;
+    }
+
+    // Tracking Number is the 4th column (index 3)
+    const TRACKING_NUMBER_INDEX = 3;
+
+    const rows = table.querySelectorAll("tr.eds-table__row");
+    if (rows.length === 0) {
+      alert("No order rows found.");
+      return;
+    }
+
+    // Identify all rows that match any tracking number
+    const matchingRows = Array.from(rows).reduce((acc, row) => {
+      const cells = row.querySelectorAll("td");
+      const trackingNumberCell = cells[TRACKING_NUMBER_INDEX];
+
+      if (trackingNumberCell) {
+        const rowTrackingNumber = trackingNumberCell.textContent.trim();
+
+        // Check against all input tracking numbers
+        trackingNumbers.forEach((inputNum) => {
+          if (rowTrackingNumber.includes(inputNum)) {
+            acc.push({ row, trackingNumber: inputNum });
+
+            // Remove from "not found" list if it was there
+            const index = notFoundNumbers.indexOf(inputNum);
+            if (index > -1) notFoundNumbers.splice(index, 1);
+          }
+        });
+      }
+      return acc;
+    }, []);
+
+    GM_log(`Found ${matchingRows.length} matching orders`);
+
+    if (matchingRows.length === 0) {
+      alert("No matching tracking numbers found.");
+      return;
+    }
+
+    // Process matching rows sequentially
+    for (const { row, trackingNumber } of matchingRows) {
+      await processRow(row, trackingNumber, results);
+      await delay(200); // Processing delay to avoid overloading the interface
+    }
+  };
+
   const showResults = (results, notFoundNumbers) => {
-    // 显示结果统计
-    let message = `处理完成!\n成功勾选: ${results.success}\n勾选失败: ${results.failed}\n未找到: ${notFoundNumbers.length}`;
+    let message = `Processing Complete!\n✅ Successfully Checked: ${results.success}\n❌ Check Failed: ${results.failed}\n⚠️ Not Found: ${notFoundNumbers.length}`;
 
     if (notFoundNumbers.length > 0) {
-      message += `\n\n未找到的追踪号 (${
-        notFoundNumbers.length
-      }):\n${notFoundNumbers.join("\n")}`;
+      message += `\n\nTracking Numbers Not Found (${notFoundNumbers.length}):\n${notFoundNumbers.join("\n")}`;
     }
 
     alert(message);
   };
 
+  // --- 4. Modal Creation and Initialization --------------------------
+
+  const createModal = () => {
+    const modal = createElement("div", "custom-modal", "", { id: "trackingNumberModal" });
+    const modalDialog = createElement("div", "custom-modal-dialog");
+    const modalContent = createElement("div", "custom-modal-content");
+
+    modal.appendChild(modalDialog);
+    modalDialog.appendChild(modalContent);
+
+    // Header
+    const modalHeader = createElement("div", "custom-modal-header");
+    const modalTitle = createElement("h5", "custom-modal-title", "Enter Tracking Number(s)");
+    const closeButton = createElement("button", "custom-close", "×", { "aria-label": "Close" });
+    closeButton.addEventListener("click", () => modal.style.display = "none");
+    modalHeader.append(modalTitle, closeButton);
+
+    // Body
+    const modalBody = createElement("div", "custom-modal-body");
+    const input = createElement("textarea", "custom-form-control", "", {
+      placeholder: "Enter one or more tracking numbers, one per line",
+    });
+    modalBody.appendChild(input);
+
+    // Footer
+    const modalFooter = createElement("div", "custom-modal-footer");
+    const searchButton = createElement("button", "custom-btn custom-btn-primary", "Search");
+    const cancelButton = createElement("button", "custom-btn custom-btn-secondary", "Cancel");
+
+    cancelButton.addEventListener("click", () => modal.style.display = "none");
+
+    searchButton.addEventListener("click", async () => {
+      try {
+        const trackingNumbers = input.value
+          .split("\n")
+          .map((num) => num.trim())
+          .filter(Boolean);
+
+        if (trackingNumbers.length === 0) {
+          alert("Please enter at least one tracking number.");
+          return;
+        }
+
+        searchButton.disabled = true;
+        searchButton.textContent = "Processing...";
+
+        const notFoundNumbers = [...trackingNumbers];
+        const results = { success: 0, failed: 0, skipped: 0 };
+
+        await searchAndCheck(trackingNumbers, results, notFoundNumbers);
+
+        searchButton.disabled = false;
+        searchButton.textContent = "Search";
+        modal.style.display = "none";
+
+        showResults(results, notFoundNumbers);
+      } catch (error) {
+        GM_log("Error during search process: " + error.message);
+        alert("An error occurred during the search process: " + error.message);
+      }
+    });
+
+    modalFooter.append(cancelButton, searchButton);
+
+    modalContent.append(modalHeader, modalBody, modalFooter);
+
+    document.body.appendChild(modal);
+
+    return { modal, input };
+  };
+
   const { modal, input } = createModal();
 
-  // 注册油猴菜单命令
-  GM_registerMenuCommand("输入追踪号", () => {
+  /**
+   * Handler function to open the modal.
+   */
+  function openTrackingModal() {
     modal.style.display = "block";
-    input.value = ""; // 清空输入框
-    input.placeholder = "请输入一个或多个包裹追踪号，每行一个";
+    input.value = "";
     input.focus();
-  });
+  }
+
+  // Register Tampermonkey Menu Command
+  GM_registerMenuCommand("Shopee: Input Tracking", openTrackingModal);
 })();
