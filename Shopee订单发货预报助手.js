@@ -8,6 +8,8 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
 // @grant        GM_log
+// @updateURL    https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/Shopee订单发货预报助手.js
+// @downloadURL  https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/Shopee订单发货预报助手.js
 // ==/UserScript==
 
 (function () {
