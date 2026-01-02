@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopee Order Shipment Pre-declaration Helper
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.1.1
 // @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu in the Seller Center
 // @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
