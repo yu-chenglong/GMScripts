@@ -5,9 +5,10 @@
 // @description  DianXiaoMi Helper
 // @author       Yu Chenglong
 // @match        https://www.dianxiaomi.com/*
-// @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
 // @grant        GM_log
+// @updateURL    https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/店小秘助手.js
+// @downloadURL  https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/店小秘助手.js
 // ==/UserScript==
 
 (function () {
