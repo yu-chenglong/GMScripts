@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopee Order Shipment Pre-declaration Helper
 // @namespace    https://github.com/yu-chenglong/GMScripts
-// @version      2.1.2
+// @version      2.1.3
 // @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu in the Seller Center
 // @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
@@ -253,7 +253,7 @@
     const modalHeader = createElement("div", "custom-modal-header");
     const modalTitle = createElement("h5", "custom-modal-title", "Enter Tracking Number(s)");
     const closeButton = createElement("button", "custom-close", "×", { "aria-label": "Close" });
-    closeButton.addEventListener("click", () => modal.style.display = "none");
+    closeButton.addEventListener("click", () => (modal.style.display = "none"));
     modalHeader.append(modalTitle, closeButton);
 
     // Body
@@ -268,7 +268,7 @@
     const searchButton = createElement("button", "custom-btn custom-btn-primary", "Search");
     const cancelButton = createElement("button", "custom-btn custom-btn-secondary", "Cancel");
 
-    cancelButton.addEventListener("click", () => modal.style.display = "none");
+    cancelButton.addEventListener("click", () => (modal.style.display = "none"));
 
     searchButton.addEventListener("click", async () => {
       try {
