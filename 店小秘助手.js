@@ -11,8 +11,48 @@
 // @downloadURL  https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/店小秘助手.js
 // ==/UserScript==
 
+
 (function () {
     'use strict';
+    // 固定区
+    // 配置区
+
+    // 工具函数区
+    const utils = {
+        log: (msg) => {
+            GM_log(`[店小秘助手] ${msg}`);
+        },
+        copyToClipboard: async (text) => {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (err) {
+                console.error('复制失败:', err);
+                return false;
+            }
+        },
+        waitElement: (selector, timeout = 5000) => {
+            return new Promise((resolve, reject) => {
+                const interval = 100;
+                let elapsedTime = 0;
+                const timer = setInterval(() => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        clearInterval(timer);
+                        resolve(element);
+                    } else if (elapsedTime >= timeout) {
+                        clearInterval(timer);
+                        reject(new Error('元素未找到: ' + selector));
+                    }   else {
+                        elapsedTime += interval;
+                    }
+                }, interval);
+            });        
+        }
+    };
+    // 功能实现区
+    // 初始化执行区」
+    
 
     GM_addStyle(`
         #img-copy-tip {
