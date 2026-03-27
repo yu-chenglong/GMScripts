@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopee Order Shipment Pre-declaration Helper
 // @namespace    https://github.com/yu-chenglong/GMScripts
-// @version      2.1.3
+// @version      2.2.0
 // @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu in the Seller Center
 // @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
@@ -15,312 +15,442 @@
 (function () {
   "use strict";
 
-  // --- 1. Custom Styles (Font Size Adjusted) --------------------------------
-  GM_addStyle(`
-    .custom-modal {
-        display: none; position: fixed; z-index: 10000; left: 0; top: 0;
-        width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
-    }
-    .custom-modal-dialog {
-        margin: 15% auto; width: 80%; max-width: 500px;
-    }
-    .custom-modal-content {
-        background-color: #fff; border: 1px solid #888; border-radius: 4px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .custom-modal-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 1rem; border-bottom: 1px solid #eee; background-color: #0d6efd;
-        color: #fff; border-radius: 4px 4px 0 0;
-    }
-    .custom-modal-title {
-        margin: 0; font-size: 1.35rem; font-weight: bold; /* Slightly larger title */
-    }
-    .custom-close {
-        background: none; border: none; font-size: 1.5rem; color: #fff; opacity: 0.8;
-        cursor: pointer; padding: 0.5rem; line-height: 1; margin: -1rem -1rem -1rem auto;
-    }
-    .custom-modal-body {
-        padding: 1rem;
-    }
-    .custom-modal-footer {
-        display: flex; justify-content: flex-end; padding: 0.75rem; border-top: 1px solid #eee;
-    }
-    .custom-form-control {
-        width: 100%; padding: 0.6rem 0.75rem; font-size: 1.1rem; line-height: 1.6; /* Increased input text size */
-        border: 1px solid #ccc; border-radius: 4px; min-height: 150px; resize: vertical;
-        box-sizing: border-box;
-    }
-    .custom-btn {
-        padding: 0.5rem 1rem; font-size: 1.1rem; border-radius: 4px; cursor: pointer; /* Increased button text size */
-        margin-left: 0.5rem; transition: background-color 0.2s;
-    }
-    .custom-btn-primary {
-        color: #fff; background-color: #0d6efd; border: 1px solid #0d6efd;
-    }
-    .custom-btn-primary:hover {
-        background-color: #0b5ed7;
-    }
-    .custom-btn-secondary {
-        color: #333; background-color: #f8f9fa; border: 1px solid #ccc;
-    }
-    .custom-btn-secondary:hover {
-        background-color: #e2e6ea;
-    }
-    .checked-checkbox {
-        outline: 2px solid green !important;
-    }
-  `);
-
-  // --- 2. Utility Functions ------------------------------------------
-
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const getWindow = () =>
-    typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
-
-  /**
-   * Creates an HTML element with optional class, text, and attributes.
-   */
-  const createElement = (tag, className, textContent = "", attributes = {}) => {
-    const element = document.createElement(tag);
-    if (className) element.classList.add(...className.split(" "));
-    if (textContent) element.textContent = textContent;
-    for (const [key, value] of Object.entries(attributes)) {
-      element.setAttribute(key, value);
-    }
-    return element;
+  // 1. Configurations - Constants & Language Config
+  const CONSTANTS = {
+    TRACKING_NUMBER_COLUMN_INDEX: 3,
+    MODAL_Z_INDEX: 10000,
+    CHECKBOX_DELAY: 50,
+    ROW_PROCESS_DELAY: 200,
+    CHECKED_HIGHLIGHT_DURATION: 3000
   };
 
-  /**
-   * Simulates a mouse or change event on the target element.
-   * @param {HTMLElement} element
-   * @param {string} eventType - e.g., 'click', 'change'
-   */
-  const triggerEvent = (element, eventType) => {
-    if (!element) return;
-    try {
-      const EventClass = eventType === 'click' ? MouseEvent : Event;
-      const event = new EventClass(eventType, {
-        bubbles: true,
-        cancelable: true,
-        view: getWindow(),
+  const LANG_CONFIG = {
+    zh: {
+      menuTitle: "Shopee: 输入物流单号",
+      modalTitle: "输入物流单号",
+      inputPlaceholder: "请输入一个或多个物流单号，每行一个",
+      searchBtn: "搜索",
+      cancelBtn: "取消",
+      processingBtn: "处理中...",
+      tableNotFound: "未找到订单表格，请确保页面完全加载",
+      noRowsFound: "未找到订单行",
+      noMatchingNumbers: "未找到匹配的物流单号",
+      emptyInput: "请至少输入一个物流单号",
+      processComplete: "处理完成！",
+      success: "成功勾选",
+      failed: "勾选失败",
+      notFound: "未找到",
+      trackingNumbersNotFound: "未找到的物流单号",
+      checkSuccess: "✅ 成功勾选：",
+      checkFailed: "❌ 勾选失败（状态未变更）：",
+      checkboxNotFound: "❌ 未找到复选框元素：",
+      alreadyChecked: "✅ 已勾选，跳过：",
+      errorDuringSearch: "搜索过程中发生错误：",
+      errorTriggerEvent: "触发 {eventType} 事件时出错：",
+      errorCheckboxOp: "物流单号 {trackingNumber} 复选框操作出错：",
+      foundMatchingOrders: "找到 {count} 个匹配订单"
+    },
+    en: {
+      menuTitle: "Shopee: Input Tracking",
+      modalTitle: "Enter Tracking Number(s)",
+      inputPlaceholder: "Enter one or more tracking numbers, one per line",
+      searchBtn: "Search",
+      cancelBtn: "Cancel",
+      processingBtn: "Processing...",
+      tableNotFound: "Order table not found. Please ensure the page is fully loaded.",
+      noRowsFound: "No order rows found.",
+      noMatchingNumbers: "No matching tracking numbers found.",
+      emptyInput: "Please enter at least one tracking number.",
+      processComplete: "Processing Complete!",
+      success: "Successfully Checked",
+      failed: "Check Failed",
+      notFound: "Not Found",
+      trackingNumbersNotFound: "Tracking Numbers Not Found",
+      checkSuccess: "✅ Successfully checked: ",
+      checkFailed: "❌ Check failed (state unchanged): ",
+      checkboxNotFound: "❌ Checkbox element not found: ",
+      alreadyChecked: "✅ Already checked, skipping: ",
+      errorDuringSearch: "Error during search process: ",
+      errorTriggerEvent: "Error triggering {eventType} event: ",
+      errorCheckboxOp: "Error during checkbox operation for {trackingNumber}: ",
+      foundMatchingOrders: "Found {count} matching orders"
+    }
+  };
+
+  // 2. Utility - Common Helper Functions
+  const Utils = {
+    getBrowserLang() {
+      const lang = navigator.language || navigator.userLanguage;
+      return lang.startsWith("zh") ? "zh" : "en";
+    },
+
+    t(key, params = {}) {
+      const currentLang = this.getBrowserLang();
+      let text = LANG_CONFIG[currentLang][key];
+
+      // Fallback to alternative language or key itself if missing
+      if (!text) {
+        const fallbackLang = currentLang === "zh" ? "en" : "zh";
+        text = LANG_CONFIG[fallbackLang][key] || key;
+        GM_log(`[Missing Text] Key '${key}' not found in ${currentLang}, fallback to ${fallbackLang} or key`);
+      }
+
+      // Replace parameters (keep placeholder if param missing)
+      Object.keys(params).forEach(param => {
+        const placeholder = `{${param}}`;
+        text = text.replace(placeholder, params[param] || placeholder);
       });
-      element.dispatchEvent(event);
-    } catch (error) {
-      GM_log(`Error triggering ${eventType} event: ${error.message}`);
-    }
-  };
 
-  /**
-   * Attempts to check a checkbox and verifies the state change.
-   * @param {HTMLInputElement} checkbox
-   * @param {string} trackingNumber
-   * @returns {Promise<boolean>} Success status
-   */
-  const checkCheckbox = async (checkbox, trackingNumber) => {
-    if (!checkbox) return false;
+      return text;
+    },
 
-    const initialState = checkbox.checked;
+    delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    },
 
-    try {
-      // 1. Simulate user click
-      triggerEvent(checkbox, "click");
-      await delay(50); // Give framework time to process click
+    getWindow() {
+      return typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+    },
 
-      // 2. Force a 'change' event in case the click wasn't fully registered
-      triggerEvent(checkbox, "change");
-      await delay(50);
+    createElement(tag, className, textContent = "", attributes = {}) {
+      const element = document.createElement(tag);
+      if (className) element.classList.add(...className.split(" "));
+      if (textContent) element.textContent = textContent;
+      Object.entries(attributes).forEach(([key, value]) => {
+        element.setAttribute(key, value);
+      });
+      return element;
+    },
 
-      const finalState = checkbox.checked;
-      const isSuccess = finalState !== initialState;
-
-      if (isSuccess) {
-        GM_log(`✅ Successfully checked: ${trackingNumber}`);
-        checkbox.classList.add("checked-checkbox");
-        setTimeout(() => checkbox.classList.remove("checked-checkbox"), 3000);
-      } else {
-        GM_log(`❌ Check failed (state unchanged): ${trackingNumber}`);
-      }
-
-      return isSuccess;
-    } catch (error) {
-      GM_log(`Error during checkbox operation for ${trackingNumber}: ${error.message}`);
-      return false;
-    }
-  };
-
-  // --- 3. Core Logic -------------------------------------------------
-
-  const processRow = async (row, trackingNumber, results) => {
-    const checkbox = row.querySelector(".eds-checkbox__input");
-
-    if (!checkbox) {
-      GM_log(`❌ Checkbox element not found: ${trackingNumber}`);
-      results.skipped++;
-      return;
-    }
-
-    // Skip if already checked
-    if (checkbox.checked) {
-      GM_log(`✅ Already checked, skipping: ${trackingNumber}`);
-      results.skipped++;
-      return;
-    }
-
-    // Attempt to check
-    const isSuccess = await checkCheckbox(checkbox, trackingNumber);
-
-    if (isSuccess) {
-      results.success++;
-    } else {
-      results.failed++;
-    }
-  };
-
-  const searchAndCheck = async (trackingNumbers, results, notFoundNumbers) => {
-    const table = document.querySelector("table.eds-table__body");
-    if (!table) {
-      alert("Order table not found. Please ensure the page is fully loaded.");
-      return;
-    }
-
-    // Tracking Number is the 4th column (index 3)
-    const TRACKING_NUMBER_INDEX = 3;
-
-    const rows = table.querySelectorAll("tr.eds-table__row");
-    if (rows.length === 0) {
-      alert("No order rows found.");
-      return;
-    }
-
-    // Identify all rows that match any tracking number
-    const matchingRows = Array.from(rows).reduce((acc, row) => {
-      const cells = row.querySelectorAll("td");
-      const trackingNumberCell = cells[TRACKING_NUMBER_INDEX];
-
-      if (trackingNumberCell) {
-        const rowTrackingNumber = trackingNumberCell.textContent.trim();
-
-        // Check against all input tracking numbers
-        trackingNumbers.forEach((inputNum) => {
-          if (rowTrackingNumber.includes(inputNum)) {
-            acc.push({ row, trackingNumber: inputNum });
-
-            // Remove from "not found" list if it was there
-            const index = notFoundNumbers.indexOf(inputNum);
-            if (index > -1) notFoundNumbers.splice(index, 1);
-          }
-        });
-      }
-      return acc;
-    }, []);
-
-    GM_log(`Found ${matchingRows.length} matching orders`);
-
-    if (matchingRows.length === 0) {
-      alert("No matching tracking numbers found.");
-      return;
-    }
-
-    // Process matching rows sequentially
-    for (const { row, trackingNumber } of matchingRows) {
-      await processRow(row, trackingNumber, results);
-      await delay(200); // Processing delay to avoid overloading the interface
-    }
-  };
-
-  const showResults = (results, notFoundNumbers) => {
-    let message = `Processing Complete!\n✅ Successfully Checked: ${results.success}\n❌ Check Failed: ${results.failed}\n⚠️ Not Found: ${notFoundNumbers.length}`;
-
-    if (notFoundNumbers.length > 0) {
-      message += `\n\nTracking Numbers Not Found (${notFoundNumbers.length}):\n${notFoundNumbers.join("\n")}`;
-    }
-
-    alert(message);
-  };
-
-  // --- 4. Modal Creation and Initialization --------------------------
-
-  const createModal = () => {
-    const modal = createElement("div", "custom-modal", "", { id: "trackingNumberModal" });
-    const modalDialog = createElement("div", "custom-modal-dialog");
-    const modalContent = createElement("div", "custom-modal-content");
-
-    modal.appendChild(modalDialog);
-    modalDialog.appendChild(modalContent);
-
-    // Header
-    const modalHeader = createElement("div", "custom-modal-header");
-    const modalTitle = createElement("h5", "custom-modal-title", "Enter Tracking Number(s)");
-    const closeButton = createElement("button", "custom-close", "×", { "aria-label": "Close" });
-    closeButton.addEventListener("click", () => (modal.style.display = "none"));
-    modalHeader.append(modalTitle, closeButton);
-
-    // Body
-    const modalBody = createElement("div", "custom-modal-body");
-    const input = createElement("textarea", "custom-form-control", "", {
-      placeholder: "Enter one or more tracking numbers, one per line",
-    });
-    modalBody.appendChild(input);
-
-    // Footer
-    const modalFooter = createElement("div", "custom-modal-footer");
-    const searchButton = createElement("button", "custom-btn custom-btn-primary", "Search");
-    const cancelButton = createElement("button", "custom-btn custom-btn-secondary", "Cancel");
-
-    cancelButton.addEventListener("click", () => (modal.style.display = "none"));
-
-    searchButton.addEventListener("click", async () => {
+    triggerEvent(element, eventType) {
+      if (!element) return;
       try {
-        const trackingNumbers = input.value
-          .split("\n")
-          .map((num) => num.trim())
-          .filter(Boolean);
+        const EventClass = eventType === "click" ? MouseEvent : Event;
+        const event = new EventClass(eventType, {
+          bubbles: true,
+          cancelable: true,
+          view: this.getWindow()
+        });
+        element.dispatchEvent(event);
+      } catch (error) {
+        GM_log(this.t("errorTriggerEvent", { eventType }) + error.message);
+      }
+    }
+  };
 
-        if (trackingNumbers.length === 0) {
-          alert("Please enter at least one tracking number.");
-          return;
+  // 3. Style Manager - Simplified & Elegant CSS Management
+  const StyleManager = (() => {
+    // CSS styles as template string (organized by component)
+    const styles = `
+      /* Modal Container */
+      .custom-modal {
+        display: none;
+        position: fixed;
+        z-index: ${CONSTANTS.MODAL_Z_INDEX};
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.5);
+      }
+
+      /* Modal Dialog */
+      .custom-modal-dialog {
+        margin: 15% auto;
+        width: 80%;
+        max-width: 500px;
+      }
+
+      /* Modal Content */
+      .custom-modal-content {
+        background: #fff;
+        border: 1px solid #888;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+
+      /* Modal Header */
+      .custom-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        background: #0d6efd;
+        color: #fff;
+        border-radius: 4px 4px 0 0;
+      }
+
+      .custom-modal-title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: bold;
+      }
+
+      .custom-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: #fff;
+        opacity: 0.8;
+        cursor: pointer;
+        padding: 0.5rem;
+        line-height: 1;
+        margin: -1rem -1rem -1rem auto;
+      }
+
+      /* Modal Body & Footer */
+      .custom-modal-body { padding: 1rem; }
+      .custom-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0.75rem;
+        border-top: 1px solid #eee;
+      }
+
+      /* Form Input */
+      .custom-form-control {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        min-height: 150px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+
+      /* Buttons */
+      .custom-btn {
+        padding: 0.5rem 1rem;
+        font-size: 1.1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        transition: background-color 0.2s;
+      }
+
+      .custom-btn-primary {
+        color: #fff;
+        background: #0d6efd;
+        border: 1px solid #0d6efd;
+      }
+
+      .custom-btn-primary:hover { background: #0b5ed7; }
+
+      .custom-btn-secondary {
+        color: #333;
+        background: #f8f9fa;
+        border: 1px solid #ccc;
+      }
+
+      .custom-btn-secondary:hover { background: #e2e6ea; }
+
+      /* Checkbox Highlight */
+      .checked-checkbox { outline: 2px solid green !important; }
+    `;
+
+    // Single method to inject styles
+    return {
+      inject: () => GM_addStyle(styles)
+    };
+  })();
+
+  // 4. Actions - Main Logic
+  const Actions = {
+    async checkCheckbox(checkbox, trackingNumber) {
+      if (!checkbox) return false;
+
+      const initialState = checkbox.checked;
+      try {
+        Utils.triggerEvent(checkbox, "click");
+        await Utils.delay(CONSTANTS.CHECKBOX_DELAY);
+
+        Utils.triggerEvent(checkbox, "change");
+        await Utils.delay(CONSTANTS.CHECKBOX_DELAY);
+
+        const finalState = checkbox.checked;
+        const isSuccess = finalState !== initialState;
+
+        if (isSuccess) {
+          GM_log(Utils.t("checkSuccess") + trackingNumber);
+          checkbox.classList.add("checked-checkbox");
+          setTimeout(() => checkbox.classList.remove("checked-checkbox"), CONSTANTS.CHECKED_HIGHLIGHT_DURATION);
+        } else {
+          GM_log(Utils.t("checkFailed") + trackingNumber);
         }
 
-        searchButton.disabled = true;
-        searchButton.textContent = "Processing...";
-
-        const notFoundNumbers = [...trackingNumbers];
-        const results = { success: 0, failed: 0, skipped: 0 };
-
-        await searchAndCheck(trackingNumbers, results, notFoundNumbers);
-
-        searchButton.disabled = false;
-        searchButton.textContent = "Search";
-        modal.style.display = "none";
-
-        showResults(results, notFoundNumbers);
+        return isSuccess;
       } catch (error) {
-        GM_log("Error during search process: " + error.message);
-        alert("An error occurred during the search process: " + error.message);
+        GM_log(Utils.t("errorCheckboxOp", { trackingNumber }) + error.message);
+        return false;
       }
-    });
+    },
 
-    modalFooter.append(cancelButton, searchButton);
+    async processRow(row, trackingNumber, results) {
+      const checkbox = row.querySelector(".eds-checkbox__input");
 
-    modalContent.append(modalHeader, modalBody, modalFooter);
+      if (!checkbox) {
+        GM_log(Utils.t("checkboxNotFound") + trackingNumber);
+        results.skipped++;
+        return;
+      }
 
-    document.body.appendChild(modal);
+      if (checkbox.checked) {
+        GM_log(Utils.t("alreadyChecked") + trackingNumber);
+        results.skipped++;
+        return;
+      }
 
-    return { modal, input };
+      const isSuccess = await this.checkCheckbox(checkbox, trackingNumber);
+      isSuccess ? results.success++ : results.failed++;
+    },
+
+    async searchAndCheck(trackingNumbers, results, notFoundNumbers) {
+      const table = document.querySelector("table.eds-table__body");
+      if (!table) {
+        alert(Utils.t("tableNotFound"));
+        return;
+      }
+
+      const rows = table.querySelectorAll("tr.eds-table__row");
+      if (rows.length === 0) {
+        alert(Utils.t("noRowsFound"));
+        return;
+      }
+
+      // `notFoundNumbers` is expected to be a Set for efficient deletion.
+      const matchingRows = [];
+      for (const row of rows) {
+        const cells = row.querySelectorAll("td");
+        const trackingNumberCell = cells[CONSTANTS.TRACKING_NUMBER_COLUMN_INDEX];
+        if (!trackingNumberCell) continue;
+
+        const rowTrackingNumber = trackingNumberCell.textContent.trim();
+        for (const inputNum of trackingNumbers) {
+          if (rowTrackingNumber.includes(inputNum)) {
+            matchingRows.push({ row, trackingNumber: inputNum });
+            notFoundNumbers.delete(inputNum);
+          }
+        }
+      }
+
+      GM_log(Utils.t("foundMatchingOrders", { count: matchingRows.length }));
+
+      if (matchingRows.length === 0) {
+        alert(Utils.t("noMatchingNumbers"));
+        return;
+      }
+
+      for (const { row, trackingNumber } of matchingRows) {
+        await this.processRow(row, trackingNumber, results);
+        await Utils.delay(CONSTANTS.ROW_PROCESS_DELAY);
+      }
+    },
+
+    showResults(results, notFoundNumbers) {
+      const list = notFoundNumbers instanceof Set
+        ? Array.from(notFoundNumbers)
+        : notFoundNumbers;
+
+      let message = `${Utils.t("processComplete")}\n✅ ${Utils.t("success")}: ${results.success}\n❌ ${Utils.t("failed")}: ${results.failed}\n⚠️ ${Utils.t("notFound")}: ${list.length}`;
+
+      if (list.length > 0) {
+        message += `\n\n${Utils.t("trackingNumbersNotFound")} (${list.length}):\n${list.join("\n")}`;
+      }
+
+      alert(message);
+    }
   };
 
-  const { modal, input } = createModal();
+  // 5. UI Layer - Modal & Interaction
+  const UIManager = {
+    modal: null,
+    input: null,
 
-  /**
-   * Handler function to open the modal.
-   */
-  function openTrackingModal() {
-    modal.style.display = "block";
-    input.value = "";
-    input.focus();
-  }
+    createModal() {
+      const modal = Utils.createElement("div", "custom-modal", "", { id: "trackingNumberModal" });
+      const modalDialog = Utils.createElement("div", "custom-modal-dialog");
+      const modalContent = Utils.createElement("div", "custom-modal-content");
+      modal.appendChild(modalDialog);
+      modalDialog.appendChild(modalContent);
 
-  // Register Tampermonkey Menu Command
-  GM_registerMenuCommand("Shopee: Input Tracking", openTrackingModal);
+      const modalHeader = Utils.createElement("div", "custom-modal-header");
+      const modalTitle = Utils.createElement("h5", "custom-modal-title", Utils.t("modalTitle"));
+      const closeButton = Utils.createElement("button", "custom-close", "×", { "aria-label": "Close" });
+      closeButton.addEventListener("click", () => (modal.style.display = "none"));
+      modalHeader.append(modalTitle, closeButton);
+
+      const modalBody = Utils.createElement("div", "custom-modal-body");
+      const input = Utils.createElement("textarea", "custom-form-control", "", {
+        placeholder: Utils.t("inputPlaceholder")
+      });
+      modalBody.appendChild(input);
+
+      const modalFooter = Utils.createElement("div", "custom-modal-footer");
+      const searchButton = Utils.createElement("button", "custom-btn custom-btn-primary", Utils.t("searchBtn"));
+      const cancelButton = Utils.createElement("button", "custom-btn custom-btn-secondary", Utils.t("cancelBtn"));
+
+      cancelButton.addEventListener("click", () => (modal.style.display = "none"));
+
+      searchButton.addEventListener("click", async () => {
+        try {
+          const trackingNumbers = input.value
+            .split("\n")
+            .map(num => num.trim())
+            .filter(Boolean);
+
+          if (trackingNumbers.length === 0) {
+            alert(Utils.t("emptyInput"));
+            return;
+          }
+
+          searchButton.disabled = true;
+          searchButton.textContent = Utils.t("processingBtn");
+
+          const notFoundNumbers = new Set(trackingNumbers);
+          const results = { success: 0, failed: 0, skipped: 0 };
+
+          await Actions.searchAndCheck(trackingNumbers, results, notFoundNumbers);
+
+          searchButton.disabled = false;
+          searchButton.textContent = Utils.t("searchBtn");
+          modal.style.display = "none";
+          Actions.showResults(results, notFoundNumbers);
+        } catch (error) {
+          GM_log(Utils.t("errorDuringSearch") + error.message);
+          alert(Utils.t("errorDuringSearch") + error.message);
+        }
+      });
+
+      modalFooter.append(cancelButton, searchButton);
+      modalContent.append(modalHeader, modalBody, modalFooter);
+      document.body.appendChild(modal);
+
+      this.modal = modal;
+      this.input = input;
+    },
+
+    openModal() {
+      if (!this.modal) this.createModal();
+      this.modal.style.display = "block";
+      this.input.value = "";
+      this.input.focus();
+    }
+  };
+
+  // 6. Initialization Layer - Script Entry
+  const Initializer = {
+    init() {
+      StyleManager.inject(); // Simplified style injection
+      UIManager.createModal();
+      GM_registerMenuCommand(Utils.t("menuTitle"), () => UIManager.openModal());
+      GM_log("✅ Shopee Order Shipment Helper initialized successfully");
+    }
+  };
+
+  // Script Entry Point
+  Initializer.init();
+
 })();
