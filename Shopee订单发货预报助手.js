@@ -224,7 +224,7 @@
     modal.append(dialog);
     document.body.append(modal);
 
-    const close = () => modal.style.display = "none";
+    const close = () => { modal.style.display = "none"; };
     const open = () => { modal.style.display = "block"; input.value = ""; input.focus(); };
     modal.onclick = e => e.target === modal && close();
     closeBtn.onclick = close;
