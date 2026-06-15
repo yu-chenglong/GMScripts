@@ -13,27 +13,27 @@
 // ==/UserScript==
 
 (() => {
-  'use strict';
+  "use strict";
 
   // DOM selectors and processing parameters
   const CONFIG = {
     selectors: {
-      table: 'table.eds-table__body',
-      row: 'tr.eds-table__row',
-      checkbox: '.eds-checkbox__input',
+      table: "table.eds-table__body",
+      row: "tr.eds-table__row",
+      checkbox: ".eds-checkbox__input",
     },
     columns: {
-      trackingNumber: 3,               // tracking number appears in the 4th column (0‑based)
+      trackingNumber: 3, // tracking number appears in the 4th column (0‑based)
     },
     delays: {
-      checkbox: 30,    // wait after clicking a checkbox for the page to react
-      row: 100,        // pause between processing two orders
+      checkbox: 30, // wait after clicking a checkbox for the page to react
+      row: 100, // pause between processing two orders
       highlight: 2000, // how long the green outline stays visible
-      debounce: 500,   // prevent rapid repeated searches
+      debounce: 500, // prevent rapid repeated searches
     },
     ui: {
-      modalMaxWidth: '500px',
-      modalWidth: '90%',
+      modalMaxWidth: "500px",
+      modalWidth: "90%",
       minInputLines: 1,
     },
   };
@@ -41,56 +41,57 @@
   // UI text: Chinese / English
   const I18N = {
     zh: {
-      menu: 'Shopee: 输入物流单号',
-      title: '输入物流单号',
-      placeholder: '请输入一个或多个物流单号，每行一个',
-      tip: '支持批量输入，每行一个单号 • Ctrl+Enter 快捷搜索',
-      search: '搜索',
-      cancel: '取消',
-      processing: '处理中...',
-      tableNotFound: '未找到订单表格，请确保页面完全加载',
-      noRows: '未找到订单行',
-      emptyInput: '请至少输入一个物流单号',
-      checkboxNotFound: '未找到复选框 - {num}',
-      checkFailed: '勾选失败 - {num}',
-      processingError: '单号处理异常 - {num}',
-      searchError: '搜索过程异常',
-      success: '✅ 新增勾选成功',
-      failed: '❌ 勾选失败',
-      skipped: '⏭️ 原有已勾选(跳过)',
-      notFound: '🔍 无匹配',
-      progress: '处理进度',
-      logTitle: '异常日志',
-      summarySuccess: '新增勾选成功',
-      summaryFailed: '勾选失败',
-      summarySkipped: '原有已勾选(跳过)',
-      summaryNotFound: '无匹配',
+      menu: "Shopee: 输入物流单号",
+      title: "输入物流单号",
+      placeholder: "请输入一个或多个物流单号，每行一个",
+      tip: "支持批量输入，每行一个单号 • Ctrl+Enter 快捷搜索",
+      search: "搜索",
+      cancel: "取消",
+      processing: "处理中...",
+      tableNotFound: "未找到订单表格，请确保页面完全加载",
+      noRows: "未找到订单行",
+      emptyInput: "请至少输入一个物流单号",
+      checkboxNotFound: "未找到复选框 - {num}",
+      checkFailed: "勾选失败 - {num}",
+      processingError: "单号处理异常 - {num}",
+      searchError: "搜索过程异常",
+      success: "✅ 新增勾选成功",
+      failed: "❌ 勾选失败",
+      skipped: "⏭️ 原有已勾选(跳过)",
+      notFound: "🔍 无匹配",
+      progress: "处理进度",
+      logTitle: "异常日志",
+      summarySuccess: "新增勾选成功",
+      summaryFailed: "勾选失败",
+      summarySkipped: "原有已勾选(跳过)",
+      summaryNotFound: "无匹配",
     },
     en: {
-      menu: 'Shopee: Input Tracking',
-      title: 'Enter Tracking Number(s)',
-      placeholder: 'Enter one or more tracking numbers, one per line',
-      tip: 'Batch input • Ctrl+Enter to search',
-      search: 'Search',
-      cancel: 'Cancel',
-      processing: 'Processing...',
-      tableNotFound: 'Order table not found. Please ensure the page is fully loaded.',
-      noRows: 'No order rows found.',
-      emptyInput: 'Please enter at least one tracking number.',
-      checkboxNotFound: 'Checkbox not found - {num}',
-      checkFailed: 'Check failed - {num}',
-      processingError: 'Processing error - {num}',
-      searchError: 'Search error',
-      success: '✅ New Checked',
-      failed: '❌ Check Failed',
-      skipped: '⏭️ Already Checked (Skip)',
-      notFound: '🔍 No Match',
-      progress: 'Progress',
-      logTitle: 'Exception Log',
-      summarySuccess: 'New Checked',
-      summaryFailed: 'Check Failed',
-      summarySkipped: 'Already Checked (Skip)',
-      summaryNotFound: 'No Match',
+      menu: "Shopee: Input Tracking",
+      title: "Enter Tracking Number(s)",
+      placeholder: "Enter one or more tracking numbers, one per line",
+      tip: "Batch input • Ctrl+Enter to search",
+      search: "Search",
+      cancel: "Cancel",
+      processing: "Processing...",
+      tableNotFound:
+        "Order table not found. Please ensure the page is fully loaded.",
+      noRows: "No order rows found.",
+      emptyInput: "Please enter at least one tracking number.",
+      checkboxNotFound: "Checkbox not found - {num}",
+      checkFailed: "Check failed - {num}",
+      processingError: "Processing error - {num}",
+      searchError: "Search error",
+      success: "✅ New Checked",
+      failed: "❌ Check Failed",
+      skipped: "⏭️ Already Checked (Skip)",
+      notFound: "🔍 No Match",
+      progress: "Progress",
+      logTitle: "Exception Log",
+      summarySuccess: "New Checked",
+      summaryFailed: "Check Failed",
+      summarySkipped: "Already Checked (Skip)",
+      summaryNotFound: "No Match",
     },
   };
 
@@ -103,11 +104,11 @@
     const detectLanguage = () => {
       if (cachedLang) return cachedLang;
       try {
-        const lang = navigator.language || navigator.userLanguage || 'zh';
-        cachedLang = lang.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        const lang = navigator.language || navigator.userLanguage || "zh";
+        cachedLang = lang.toLowerCase().startsWith("zh") ? "zh" : "en";
         return cachedLang;
       } catch {
-        return 'zh';
+        return "zh";
       }
     };
 
@@ -120,7 +121,7 @@
       let text = I18N[lang][key] || I18N.en[key] || key;
 
       Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+        text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);
       });
 
       translationCache.set(cacheKey, text);
@@ -128,23 +129,24 @@
     };
 
     // Sleep for ms, use requestAnimationFrame for short delays
-    const delay = (ms) => new Promise(resolve => {
-      ms <= 16 ? requestAnimationFrame(resolve) : setTimeout(resolve, ms);
-    });
+    const delay = (ms) =>
+      new Promise((resolve) => {
+        ms <= 16 ? requestAnimationFrame(resolve) : setTimeout(resolve, ms);
+      });
 
     // Simulate a click on a checkbox – Shopee needs both click and change events
     const triggerClick = (el) => {
       if (!el) return false;
       try {
         el.click();
-        const mouseEvent = new MouseEvent('click', {
+        const mouseEvent = new MouseEvent("click", {
           view: window,
           bubbles: true,
           cancelable: true,
           buttons: 1,
         });
         el.dispatchEvent(mouseEvent);
-        const changeEvent = new Event('change', { bubbles: true });
+        const changeEvent = new Event("change", { bubbles: true });
         el.dispatchEvent(changeEvent);
         return true;
       } catch {
@@ -164,9 +166,9 @@
     // Split textarea content into an array of non‑empty, trimmed lines
     const parseTrackingNumbers = (input) => {
       const numbers = input
-        .split('\n')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
       return {
         valid: numbers.length >= CONFIG.ui.minInputLines,
         numbers,
@@ -194,9 +196,14 @@
     };
 
     // Try to check one checkbox. Returns true if it ends up checked.
-    const attemptCheck = async (checkbox, trackingNumber, onError, onHighlight) => {
+    const attemptCheck = async (
+      checkbox,
+      trackingNumber,
+      onError,
+      onHighlight,
+    ) => {
       if (!checkbox) {
-        onError(Utils.t('checkboxNotFound', { num: trackingNumber }));
+        onError(Utils.t("checkboxNotFound", { num: trackingNumber }));
         return false;
       }
       if (checkbox.checked) return true;
@@ -213,8 +220,8 @@
 
         // Fallback: directly set .checked and dispatch events (for some frameworks)
         checkbox.checked = true;
-        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-        checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+        checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await Utils.delay(CONFIG.delays.checkbox);
 
         if (checkbox.checked) {
@@ -222,10 +229,10 @@
           return true;
         }
 
-        onError(Utils.t('checkFailed', { num: trackingNumber }));
+        onError(Utils.t("checkFailed", { num: trackingNumber }));
         return false;
       } catch (error) {
-        onError(Utils.t('processingError', { num: trackingNumber }));
+        onError(Utils.t("processingError", { num: trackingNumber }));
         return false;
       }
     };
@@ -236,9 +243,10 @@
       const notFound = [];
 
       for (const row of rows) {
-        const cells = row.querySelectorAll('td');
+        const cells = row.querySelectorAll("td");
         if (cells.length <= CONFIG.columns.trackingNumber) continue;
-        const cellText = cells[CONFIG.columns.trackingNumber].textContent.trim();
+        const cellText =
+          cells[CONFIG.columns.trackingNumber].textContent.trim();
 
         for (const num of trackingNumbers) {
           if (!matches.has(num) && cellText.includes(num)) {
@@ -267,21 +275,21 @@
 
       const table = document.querySelector(CONFIG.selectors.table);
       if (!table) {
-        onError(Utils.t('tableNotFound'));
+        onError(Utils.t("tableNotFound"));
         onComplete(stats);
         return stats;
       }
 
       const rows = Array.from(table.querySelectorAll(CONFIG.selectors.row));
       if (rows.length === 0) {
-        onError(Utils.t('noRows'));
+        onError(Utils.t("noRows"));
         onComplete(stats);
         return stats;
       }
 
       const { matches, notFound } = findMatches(rows, trackingNumbers);
       stats.notFound = notFound;
-      notFound.forEach(num => onError(`${Utils.t('notFound')} - ${num}`));
+      notFound.forEach((num) => onError(`${Utils.t("notFound")} - ${num}`));
 
       const matchList = Array.from(matches.entries());
       const total = matchList.length;
@@ -292,11 +300,16 @@
 
         if (!checkbox) {
           stats.failed++;
-          onError(Utils.t('checkboxNotFound', { num: trackingNumber }));
+          onError(Utils.t("checkboxNotFound", { num: trackingNumber }));
         } else if (checkbox.checked) {
           stats.skipped++;
         } else {
-          const success = await attemptCheck(checkbox, trackingNumber, onError, onHighlight);
+          const success = await attemptCheck(
+            checkbox,
+            trackingNumber,
+            onError,
+            onHighlight,
+          );
           success ? stats.success++ : stats.failed++;
         }
 
@@ -454,15 +467,15 @@
     const addLogEntry = (message, isError = false) => {
       if (!elements.logEntries) return;
       if (!hasLogEntries && elements.logPanel) {
-        elements.logPanel.style.display = 'block';
+        elements.logPanel.style.display = "block";
         hasLogEntries = true;
       }
-      const entry = document.createElement('div');
-      entry.className = 'gm-log__entry';
-      if (isError) entry.classList.add('gm-log__entry--error');
+      const entry = document.createElement("div");
+      entry.className = "gm-log__entry";
+      if (isError) entry.classList.add("gm-log__entry--error");
       entry.textContent = message;
       elements.logEntries.appendChild(entry);
-      entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      entry.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
 
     const logError = (msg) => addLogEntry(msg, true);
@@ -471,29 +484,45 @@
     const displaySummary = (stats) => {
       if (!elements.summaryPanel) return;
       const items = [
-        { label: Utils.t('summarySuccess'), value: stats.success, type: 'success' },
-        { label: Utils.t('summaryFailed'), value: stats.failed, type: 'failed' },
-        { label: Utils.t('summarySkipped'), value: stats.skipped, type: 'skipped' },
-        { label: Utils.t('summaryNotFound'), value: stats.notFound.length, type: 'notfound' },
+        {
+          label: Utils.t("summarySuccess"),
+          value: stats.success,
+          type: "success",
+        },
+        {
+          label: Utils.t("summaryFailed"),
+          value: stats.failed,
+          type: "failed",
+        },
+        {
+          label: Utils.t("summarySkipped"),
+          value: stats.skipped,
+          type: "skipped",
+        },
+        {
+          label: Utils.t("summaryNotFound"),
+          value: stats.notFound.length,
+          type: "notfound",
+        },
       ];
-      elements.summaryPanel.innerHTML = '';
-      items.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'gm-summary__item';
+      elements.summaryPanel.innerHTML = "";
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "gm-summary__item";
         row.innerHTML = `<span class="gm-summary__label">${item.label}</span>
                          <span class="gm-summary__value gm-summary__value--${item.type}">${item.value}</span>`;
         elements.summaryPanel.appendChild(row);
       });
-      elements.summaryPanel.style.display = 'block';
+      elements.summaryPanel.style.display = "block";
     };
 
     // Add/remove a green outline on a checkbox
     const highlightCheckbox = (checkbox, remove = false) => {
       if (remove) {
-        checkbox.classList.remove('gm-highlight');
+        checkbox.classList.remove("gm-highlight");
       } else {
-        checkbox.classList.add('gm-highlight');
-        const style = document.createElement('style');
+        checkbox.classList.add("gm-highlight");
+        const style = document.createElement("style");
         style.textContent = `.gm-highlight { outline: 2px solid var(--success, #198754) !important; outline-offset: 2px; transition: outline 0.2s; }`;
         document.head.appendChild(style);
       }
@@ -501,34 +530,37 @@
 
     // Reset the modal to its initial empty state
     const resetUI = () => {
-      if (elements.progressContainer) elements.progressContainer.style.display = 'none';
-      if (elements.progressFill) elements.progressFill.style.width = '0%';
-      if (elements.progressText) elements.progressText.textContent = '0%';
-      if (elements.logEntries) elements.logEntries.innerHTML = '';
+      if (elements.progressContainer)
+        elements.progressContainer.style.display = "none";
+      if (elements.progressFill) elements.progressFill.style.width = "0%";
+      if (elements.progressText) elements.progressText.textContent = "0%";
+      if (elements.logEntries) elements.logEntries.innerHTML = "";
       if (elements.logPanel) {
-        elements.logPanel.style.display = 'none';
+        elements.logPanel.style.display = "none";
         hasLogEntries = false;
       }
       if (elements.summaryPanel) {
-        elements.summaryPanel.style.display = 'none';
-        elements.summaryPanel.innerHTML = '';
+        elements.summaryPanel.style.display = "none";
+        elements.summaryPanel.innerHTML = "";
       }
     };
 
     // Called when the user clicks the Search button
     const handleSearch = Utils.debounce(async () => {
       if (isProcessing) return;
-      const { valid, numbers } = Utils.parseTrackingNumbers(elements.input?.value || '');
+      const { valid, numbers } = Utils.parseTrackingNumbers(
+        elements.input?.value || "",
+      );
       if (!valid) {
-        logError(Utils.t('emptyInput'));
+        logError(Utils.t("emptyInput"));
         return;
       }
 
       isProcessing = true;
       elements.searchBtn.disabled = true;
-      elements.searchBtn.textContent = Utils.t('processing');
+      elements.searchBtn.textContent = Utils.t("processing");
       resetUI();
-      elements.progressContainer.style.display = 'block';
+      elements.progressContainer.style.display = "block";
 
       await OrderProcessor.processOrders(numbers, {
         onProgress: updateProgress,
@@ -536,25 +568,27 @@
         onHighlight: (checkbox, remove) => highlightCheckbox(checkbox, remove),
         onComplete: (stats) => {
           displaySummary(stats);
-          GM_log(`Complete: +${stats.success} / -${stats.failed} / =${stats.skipped} / ?${stats.notFound.length}`);
+          GM_log(
+            `Complete: +${stats.success} / -${stats.failed} / =${stats.skipped} / ?${stats.notFound.length}`,
+          );
         },
       });
 
       isProcessing = false;
       elements.searchBtn.disabled = false;
-      elements.searchBtn.textContent = Utils.t('search');
+      elements.searchBtn.textContent = Utils.t("search");
     }, CONFIG.delays.debounce);
 
     const closeModal = () => {
-      if (elements.overlay) elements.overlay.style.display = 'none';
+      if (elements.overlay) elements.overlay.style.display = "none";
       isProcessing = false;
     };
 
     const openModal = () => {
       if (!elements.overlay) return;
-      elements.overlay.style.display = 'flex';
+      elements.overlay.style.display = "flex";
       if (elements.input) {
-        elements.input.value = '';
+        elements.input.value = "";
         elements.input.focus();
       }
       resetUI();
@@ -562,42 +596,42 @@
 
     // Build the entire modal inside a closed Shadow DOM
     const buildShadowDOM = () => {
-      const host = document.createElement('div');
+      const host = document.createElement("div");
       document.body.appendChild(host);
-      shadowRoot = host.attachShadow({ mode: 'closed' });
+      shadowRoot = host.attachShadow({ mode: "closed" });
 
-      const styleTag = document.createElement('style');
+      const styleTag = document.createElement("style");
       styleTag.textContent = getStyles();
       shadowRoot.appendChild(styleTag);
 
-      const overlay = document.createElement('div');
-      overlay.className = 'gm-overlay';
-      overlay.style.display = 'none';
+      const overlay = document.createElement("div");
+      overlay.className = "gm-overlay";
+      overlay.style.display = "none";
       overlay.innerHTML = `
         <div class="gm-modal">
           <div class="gm-header">
-            <h3 class="gm-title">${Utils.t('title')}</h3>
+            <h3 class="gm-title">${Utils.t("title")}</h3>
             <button class="gm-close" aria-label="Close">&times;</button>
           </div>
           <div class="gm-body">
-            <textarea class="gm-textarea" placeholder="${Utils.t('placeholder')}" rows="5"></textarea>
-            <div class="gm-tip">${Utils.t('tip')}</div>
+            <textarea class="gm-textarea" placeholder="${Utils.t("placeholder")}" rows="5"></textarea>
+            <div class="gm-tip">${Utils.t("tip")}</div>
             <div class="gm-progress">
               <div class="gm-progress__header">
-                <span>${Utils.t('progress')}</span>
+                <span>${Utils.t("progress")}</span>
                 <span class="gm-progress__text">0%</span>
               </div>
               <div class="gm-progress__bar"><div class="gm-progress__fill"></div></div>
             </div>
             <div class="gm-summary"></div>
             <div class="gm-log">
-              <div class="gm-log__title">${Utils.t('logTitle')}</div>
+              <div class="gm-log__title">${Utils.t("logTitle")}</div>
               <div class="gm-log__entries"></div>
             </div>
           </div>
           <div class="gm-footer">
-            <button class="gm-btn gm-btn--secondary">${Utils.t('cancel')}</button>
-            <button class="gm-btn gm-btn--primary">${Utils.t('search')}</button>
+            <button class="gm-btn gm-btn--secondary">${Utils.t("cancel")}</button>
+            <button class="gm-btn gm-btn--primary">${Utils.t("search")}</button>
           </div>
         </div>
       `;
@@ -606,34 +640,34 @@
       // Cache all UI elements for later manipulation
       elements = {
         overlay,
-        input: shadowRoot.querySelector('.gm-textarea'),
-        progressContainer: shadowRoot.querySelector('.gm-progress'),
-        progressFill: shadowRoot.querySelector('.gm-progress__fill'),
-        progressText: shadowRoot.querySelector('.gm-progress__text'),
-        logEntries: shadowRoot.querySelector('.gm-log__entries'),
-        logPanel: shadowRoot.querySelector('.gm-log'),
-        summaryPanel: shadowRoot.querySelector('.gm-summary'),
-        closeBtn: shadowRoot.querySelector('.gm-close'),
-        cancelBtn: shadowRoot.querySelector('.gm-btn--secondary'),
-        searchBtn: shadowRoot.querySelector('.gm-btn--primary'),
+        input: shadowRoot.querySelector(".gm-textarea"),
+        progressContainer: shadowRoot.querySelector(".gm-progress"),
+        progressFill: shadowRoot.querySelector(".gm-progress__fill"),
+        progressText: shadowRoot.querySelector(".gm-progress__text"),
+        logEntries: shadowRoot.querySelector(".gm-log__entries"),
+        logPanel: shadowRoot.querySelector(".gm-log"),
+        summaryPanel: shadowRoot.querySelector(".gm-summary"),
+        closeBtn: shadowRoot.querySelector(".gm-close"),
+        cancelBtn: shadowRoot.querySelector(".gm-btn--secondary"),
+        searchBtn: shadowRoot.querySelector(".gm-btn--primary"),
       };
 
       // Initially hide optional panels
-      if (elements.logPanel) elements.logPanel.style.display = 'none';
-      if (elements.summaryPanel) elements.summaryPanel.style.display = 'none';
+      if (elements.logPanel) elements.logPanel.style.display = "none";
+      if (elements.summaryPanel) elements.summaryPanel.style.display = "none";
 
       // Wire up events
-      elements.closeBtn.addEventListener('click', closeModal);
-      elements.cancelBtn.addEventListener('click', closeModal);
-      elements.searchBtn.addEventListener('click', handleSearch);
-      elements.input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      elements.closeBtn.addEventListener("click", closeModal);
+      elements.cancelBtn.addEventListener("click", closeModal);
+      elements.searchBtn.addEventListener("click", handleSearch);
+      elements.input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
           e.preventDefault();
           handleSearch();
         }
       });
-      overlay.addEventListener('click', (e) => {
+      overlay.addEventListener("click", (e) => {
         if (e.target === overlay) closeModal();
       });
     };
@@ -650,13 +684,16 @@
     try {
       const start = () => {
         UIManager.init();
-        GM_registerMenuCommand(Utils.t('menu'), () => UIManager.openModal());
-        GM_log('✅ Shopee Order Shipment Helper v2.6.2 ready');
+        GM_registerMenuCommand(Utils.t("menu"), () => UIManager.openModal());
+        GM_log("✅ Shopee Order Shipment Helper v2.6.2 ready");
       };
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      if (
+        document.readyState === "complete" ||
+        document.readyState === "interactive"
+      ) {
         start();
       } else {
-        document.addEventListener('DOMContentLoaded', start);
+        document.addEventListener("DOMContentLoaded", start);
       }
     } catch (error) {
       GM_log(`❌ Initialization failed: ${error.message}`);
