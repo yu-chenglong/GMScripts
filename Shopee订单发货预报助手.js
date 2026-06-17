@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shopee Order Shipment Pre-declaration Helper
 // @namespace    https://github.com/yu-chenglong/GMScripts
-// @version      2.3.1
+// @version      2.3.2
 // @description  Automate selecting Shopee orders by entering tracking numbers via a Tampermonkey menu
 // @author       Yu Chenglong
 // @match        https://seller.shopee.cn/*
@@ -46,7 +46,7 @@
       placeholder: "请输入一个或多个物流单号，每行一个",
       tip: "支持批量输入，每行一个单号 • Ctrl+Enter 快捷搜索",
       search: "搜索",
-      cancel: "取消",
+      exit: "确认&退出",
       processing: "处理中...",
       tableNotFound: "未找到订单表格，请确保页面完全加载",
       noRows: "未找到订单行",
@@ -72,7 +72,7 @@
       placeholder: "Enter one or more tracking numbers, one per line",
       tip: "Batch input • Ctrl+Enter to search",
       search: "Search",
-      cancel: "Cancel",
+      exit: "Confirm & Exit",
       processing: "Processing...",
       tableNotFound:
         "Order table not found. Please ensure the page is fully loaded.",
@@ -630,8 +630,8 @@
             </div>
           </div>
           <div class="gm-footer">
-            <button class="gm-btn gm-btn--secondary">${Utils.t("cancel")}</button>
             <button class="gm-btn gm-btn--primary">${Utils.t("search")}</button>
+            <button class="gm-btn gm-btn--secondary">${Utils.t("exit")}</button>
           </div>
         </div>
       `;
@@ -648,7 +648,7 @@
         logPanel: shadowRoot.querySelector(".gm-log"),
         summaryPanel: shadowRoot.querySelector(".gm-summary"),
         closeBtn: shadowRoot.querySelector(".gm-close"),
-        cancelBtn: shadowRoot.querySelector(".gm-btn--secondary"),
+        exitBtn: shadowRoot.querySelector(".gm-btn--secondary"),
         searchBtn: shadowRoot.querySelector(".gm-btn--primary"),
       };
 
@@ -658,7 +658,7 @@
 
       // Wire up events
       elements.closeBtn.addEventListener("click", closeModal);
-      elements.cancelBtn.addEventListener("click", closeModal);
+      elements.exitBtn.addEventListener("click", closeModal);
       elements.searchBtn.addEventListener("click", handleSearch);
       elements.input.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeModal();
