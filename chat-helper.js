@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chat Helper - Quick Reply Templates
 // @namespace    http://tampermonkey.net/
-// @version      1.1.1
+// @version      1.1.2
 // @description  Quick reply manager for Shopee/Lazada etc.
 // @author       yu-chenglong
 // @license      MIT
@@ -22,15 +22,13 @@
 (function () {
   "use strict";
 
-  // ==================== CONFIGURATION ====================
-  // Storage keys for GM_setValue/GM_getValue
+  // ==================== CONFIG ====================
   const STORAGE_URL_KEY = "ch_template_url";
   const STORAGE_CACHE_KEY = "ch_templates_cache";
   const STORAGE_CACHE_TIME_KEY = "ch_templates_cache_time";
   const STORAGE_CATEGORY_ORDER_KEY = "ch_category_order";
-  const AUTO_FILL = true; // Whether to auto-fill the input box or just copy to clipboard
+  const AUTO_FILL = true;
 
-  // Platform-specific selectors
   const SITES = [
     {
       name: "Shopee",
@@ -41,12 +39,11 @@
     {
       name: "Lazada",
       match: /lazada-seller\.cn/,
-      inputBox: 'textarea, [contenteditable="true"]',
+      inputBox: "textarea.message-textarea",
       waitFor: "body",
     },
   ];
 
-  // Global state
   let templates = [];
   let categoryOrder = [];
   let currentCategory = "";
@@ -55,8 +52,7 @@
   let currentSite = null;
   let templateUrl = "";
 
-  // ==================== ICONS (SVG) ====================
-  // Material Design style icons used in the UI
+  // ==================== ICONS ====================
   const ICONS = {
     refresh:
       '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
@@ -70,10 +66,9 @@
     settings:
       '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   };
-  const ICON_SPINNER = ICONS.refresh; // reuse refresh icon as spinner
+  const ICON_SPINNER = ICONS.refresh;
 
   // ==================== URL MANAGEMENT ====================
-  // Get/Set the template JSON URL from/to storage
   function getStoredUrl() {
     return GM_getValue(STORAGE_URL_KEY, null);
   }
@@ -81,7 +76,6 @@
     GM_setValue(STORAGE_URL_KEY, url);
   }
 
-  // Prompt user for the template URL on first run
   function promptForUrl() {
     const url = prompt(
       "Chat Helper - Setup\n\nEnter your template JSON URL:\n(JSON array with category, title, content fields)",
@@ -94,7 +88,6 @@
     return false;
   }
 
-  // Initialize the template URL from storage or prompt
   function initTemplateUrl() {
     const stored = getStoredUrl();
     if (stored) {
@@ -104,7 +97,6 @@
     return promptForUrl();
   }
 
-  // Modal for editing the template URL (inline edit)
   let urlModalVisible = false;
   let currentUrlModal = null;
 
@@ -169,8 +161,7 @@
     urlModalVisible = false;
   }
 
-  // ==================== PLATFORM & INPUT HANDLING ====================
-  // Detect current platform based on URL
+  // ==================== PLATFORM & INPUT ====================
   function getCurrentSite() {
     for (let site of SITES) {
       if (site.match.test(location.href)) return site;
@@ -178,7 +169,6 @@
     return { name: "Generic", inputBox: "textarea", waitFor: "body" };
   }
 
-  // Find the chat input box using platform-specific selectors
   function getInputBox() {
     if (!currentSite) currentSite = getCurrentSite();
     for (let sel of currentSite.inputBox.split(",")) {
@@ -194,7 +184,8 @@
     return null;
   }
 
-  // Fill the input box with text, handling React-controlled components
+  // Enhanced fill function that handles React-controlled textarea
+  // Uses native setter + multiple events to ensure frameworks detect changes
   function fillInputBox(text) {
     let input = getInputBox();
     if (!input) {
@@ -202,36 +193,58 @@
       showToast("Input box not found");
       return;
     }
+
     try {
-      if (input.tagName === "TEXTAREA") {
-        let setter = Object.getOwnPropertyDescriptor(
+      input.focus();
+
+      // Use native value setter to bypass React's synthetic event system
+      if (input.tagName === "TEXTAREA" || input.tagName === "INPUT") {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
           HTMLTextAreaElement.prototype,
           "value",
         )?.set;
-        setter ? setter.call(input, text) : (input.value = text);
-      } else if (input.tagName === "INPUT") {
-        input.value = text;
+        if (nativeSetter) {
+          nativeSetter.call(input, text);
+        } else {
+          input.value = text;
+        }
       } else if (input.isContentEditable) {
         input.innerText = text;
       } else {
         input.value = text;
       }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      input.focus();
+
+      // Trigger multiple events to ensure all frameworks detect the change
+      ["input", "change", "blur", "focus"].forEach((type) => {
+        input.dispatchEvent(new Event(type, { bubbles: true }));
+      });
+
+      // Additional synthetic events for some React versions
+      ["keydown", "keyup", "keypress"].forEach((type) => {
+        const event = new KeyboardEvent(type, {
+          key: "a",
+          code: "KeyA",
+          bubbles: true,
+        });
+        input.dispatchEvent(event);
+      });
+
+      // Set cursor to end of text
+      input.selectionStart = input.selectionEnd = text.length;
+
       showToast(`✓ Filled into ${currentSite.name}`);
     } catch (e) {
+      console.error("Fill failed:", e);
       copyToClipboard(text);
+      showToast("Auto-fill failed, copied to clipboard");
     }
   }
 
-  // Copy text to clipboard using GM_setClipboard
   function copyToClipboard(text) {
     GM_setClipboard(text, "text");
     showToast("Copied ✓");
   }
 
-  // Show a floating toast notification (auto-dismiss after 2s)
   function showToast(msg) {
     let t = document.querySelector(".ch-toast");
     if (t) t.remove();
@@ -242,20 +255,18 @@
     setTimeout(() => toast.remove(), 2000);
   }
 
-  // ==================== TEMPLATE LOADING (supports new format) ====================
-  // Save templates and categories to cache
+  // ==================== TEMPLATE LOADING ====================
   function saveToCache(data) {
     GM_setValue(STORAGE_CACHE_KEY, JSON.stringify(data));
     GM_setValue(STORAGE_CACHE_TIME_KEY, Date.now());
   }
 
-  // Load templates from cache, handling both old and new formats
+  // Supports both new format: { data: { categories, templates } } and old array format
   function loadFromCache() {
     let cached = GM_getValue(STORAGE_CACHE_KEY);
     if (cached) {
       try {
         const data = JSON.parse(cached);
-        // New format: { version, metadata, data: { categories, templates } }
         if (
           data &&
           typeof data === "object" &&
@@ -271,7 +282,6 @@
             );
           }
         } else if (Array.isArray(data)) {
-          // Old format: direct array
           templates = data;
         } else {
           templates = [];
@@ -284,7 +294,6 @@
     return false;
   }
 
-  // Fetch templates from remote URL (with cache-busting timestamp)
   function loadFromRemote(callback, silent = false) {
     if (!templateUrl) {
       if (!silent) showToast("Set template URL first");
@@ -299,7 +308,6 @@
         if (resp.status === 200) {
           try {
             const data = JSON.parse(resp.responseText);
-            // New format: { version, metadata, data: { categories, templates } }
             if (
               data &&
               typeof data === "object" &&
@@ -315,7 +323,6 @@
                 );
               }
             } else if (Array.isArray(data)) {
-              // Old format: direct array
               templates = data;
             } else {
               throw new Error("Invalid data format");
@@ -344,9 +351,7 @@
     });
   }
 
-  // Initialize templates: try cache first, then remote
   function initTemplates(callback) {
-    // Load category order from storage if present
     const orderStr = GM_getValue(STORAGE_CATEGORY_ORDER_KEY, null);
     if (orderStr) {
       try {
@@ -355,13 +360,12 @@
     }
     if (loadFromCache()) {
       callback?.();
-      loadFromRemote(() => {}, true); // silent background update
+      loadFromRemote(() => {}, true);
     } else {
       loadFromRemote(callback);
     }
   }
 
-  // Manual refresh from remote (with user feedback)
   function refreshTemplates(callback) {
     loadFromRemote(() => {
       refreshModalUI();
@@ -379,17 +383,14 @@
     );
   }
 
-  // ==================== CORE: getCategories (fix ordering) ====================
-  // Returns the list of category names in the order defined by categoryOrder.
-  // If a category is not in categoryOrder, it is appended at the end alphabetically.
+  // Returns categories sorted by JSON order field.
+  // Uses category id for matching and name for display.
   function getCategories() {
-    // Extract all category IDs from templates (new: categoryId, old: category)
     const ids = [
       ...new Set(templates.map((t) => t.categoryId || t.category)),
     ].filter(Boolean);
 
     if (categoryOrder && categoryOrder.length > 0) {
-      // Build id -> name mapping
       const idToName = {};
       categoryOrder.forEach((c) => {
         idToName[c.id] = c.name || c.id;
@@ -398,14 +399,12 @@
       const ordered = [];
       const rest = [];
 
-      // Add categories in the order defined in categoryOrder
       for (const catDef of categoryOrder) {
         if (ids.includes(catDef.id)) {
-          ordered.push(idToName[catDef.id]); // use the display name
+          ordered.push(idToName[catDef.id]);
         }
       }
 
-      // Append categories not in categoryOrder, sorted alphabetically
       for (const id of ids) {
         if (!categoryOrder.some((c) => c.id === id)) {
           rest.push(id);
@@ -417,22 +416,18 @@
       return [...ordered, ...restNames];
     }
 
-    // Fallback to alphabetical order if no categoryOrder defined
     return ids.sort();
   }
 
-  // Get display name for a category ID
   function getCategoryDisplayName(catId) {
     if (!categoryOrder || categoryOrder.length === 0) return catId;
     const found = categoryOrder.find((c) => c.id === catId || c.name === catId);
     return found?.name || found?.id || catId;
   }
 
-  // Get templates that belong to a given category (by name or ID)
   function getTemplatesByCategory(cat) {
     return templates.filter((t) => {
       const tCat = t.categoryId || t.category;
-      // If cat is a display name, try to match by name; otherwise match by id
       const matched = categoryOrder.find((c) => c.name === cat);
       if (matched) {
         return tCat === matched.id || tCat === matched.name;
@@ -441,14 +436,13 @@
     });
   }
 
-  // Handle template click: fill input or copy to clipboard
   function onTemplateClick(content) {
     if (AUTO_FILL) fillInputBox(content);
     else copyToClipboard(content);
     closeModal();
   }
 
-  // ==================== MATERIAL UI (styles and rendering) ====================
+  // ==================== MATERIAL UI ====================
   GM_addStyle(`
         .ch-fab{position:fixed!important;bottom:24px!important;right:24px!important;width:56px!important;height:56px!important;border-radius:28px!important;background:#6750A4!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;z-index:999999!important;box-shadow:0 4px 8px rgba(0,0,0,.15)!important;transition:.2s!important}.ch-fab:hover{background:#7F67BE!important;transform:scale(1.02)!important}
         .ch-dialog-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);z-index:100000;display:flex;align-items:center;justify-content:center}
@@ -491,7 +485,6 @@
 
   let categoriesContainer, templatesContainer;
 
-  // Render the category list in the left sidebar
   function renderCategories() {
     let cats = getCategories();
     categoriesContainer.innerHTML = cats.length
@@ -511,7 +504,6 @@
     });
   }
 
-  // Render the template cards in the right panel
   function renderTemplates() {
     let items = getTemplatesByCategory(currentCategory);
     templatesContainer.innerHTML = items.length
@@ -531,7 +523,6 @@
     });
   }
 
-  // Refresh the entire modal UI (after data update)
   function refreshModalUI() {
     let cats = getCategories();
     if (cats.length && (!currentCategory || !cats.includes(currentCategory))) {
@@ -557,7 +548,6 @@
     }
   }
 
-  // Build the modal DOM structure and attach event listeners
   function buildModal() {
     let backdrop = document.createElement("div");
     backdrop.className = "ch-dialog-backdrop";
@@ -662,8 +652,7 @@
     modalVisible = false;
   }
 
-  // ==================== INITIALIZATION ====================
-  // Create the floating action button and start the script
+  // ==================== INIT ====================
   function initUI() {
     if (document.querySelector(".ch-fab")) return;
     let fab = document.createElement("div");
@@ -675,7 +664,6 @@
     console.log("Chat Helper started");
   }
 
-  // Wait for the page to load before initializing
   function waitForPage() {
     currentSite = getCurrentSite();
     let check = () => {
