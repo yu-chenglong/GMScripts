@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Chat Helper - Quick Reply Templates
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.1.1
 // @description  Quick reply manager for Shopee/Lazada etc.
 // @author       yu-chenglong
 // @license      MIT
@@ -19,75 +19,109 @@
 // @downloadURL  https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/chat-helper.js
 // ==/UserScript==
 
-(function() {
-    'use strict';
+(function () {
+  "use strict";
 
-    // ==================== CONFIG ====================
-    const STORAGE_URL_KEY = 'ch_template_url';
-    const STORAGE_CACHE_KEY = 'ch_templates_cache';
-    const STORAGE_CACHE_TIME_KEY = 'ch_templates_cache_time';
-    const STORAGE_CATEGORY_ORDER_KEY = 'ch_category_order';
-    const AUTO_FILL = true;
+  // ==================== CONFIGURATION ====================
+  // Storage keys for GM_setValue/GM_getValue
+  const STORAGE_URL_KEY = "ch_template_url";
+  const STORAGE_CACHE_KEY = "ch_templates_cache";
+  const STORAGE_CACHE_TIME_KEY = "ch_templates_cache_time";
+  const STORAGE_CATEGORY_ORDER_KEY = "ch_category_order";
+  const AUTO_FILL = true; // Whether to auto-fill the input box or just copy to clipboard
 
-    const SITES = [
-        { name: 'Shopee', match: /seller\.shopee\./, inputBox: '#inputField textarea', waitFor: '#inputField' },
-        { name: 'Lazada', match: /lazada-seller\.cn/, inputBox: 'textarea, [contenteditable="true"]', waitFor: 'body' },
-    ];
+  // Platform-specific selectors
+  const SITES = [
+    {
+      name: "Shopee",
+      match: /seller\.shopee\./,
+      inputBox: "#inputField textarea",
+      waitFor: "#inputField",
+    },
+    {
+      name: "Lazada",
+      match: /lazada-seller\.cn/,
+      inputBox: 'textarea, [contenteditable="true"]',
+      waitFor: "body",
+    },
+  ];
 
-    let templates = [];
-    let categoryOrder = [];
-    let currentCategory = '';
-    let modalVisible = false;
-    let currentModal = null;
-    let currentSite = null;
-    let templateUrl = '';
+  // Global state
+  let templates = [];
+  let categoryOrder = [];
+  let currentCategory = "";
+  let modalVisible = false;
+  let currentModal = null;
+  let currentSite = null;
+  let templateUrl = "";
 
-    // ==================== ICONS (SVG) ====================
-    const ICONS = {
-        refresh: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
-        close: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-        fab: '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM9 10h6M12 7v6"/></svg>',
-        empty: '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#8E8E9A" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
-        chevron: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>',
-        settings: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
-    };
-    const ICON_SPINNER = ICONS.refresh;
+  // ==================== ICONS (SVG) ====================
+  // Material Design style icons used in the UI
+  const ICONS = {
+    refresh:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    close:
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    fab: '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM9 10h6M12 7v6"/></svg>',
+    empty:
+      '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#8E8E9A" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+    chevron:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>',
+    settings:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  };
+  const ICON_SPINNER = ICONS.refresh; // reuse refresh icon as spinner
 
-    // ==================== URL MANAGEMENT ====================
-    function getStoredUrl() { return GM_getValue(STORAGE_URL_KEY, null); }
-    function saveUrl(url) { GM_setValue(STORAGE_URL_KEY, url); }
+  // ==================== URL MANAGEMENT ====================
+  // Get/Set the template JSON URL from/to storage
+  function getStoredUrl() {
+    return GM_getValue(STORAGE_URL_KEY, null);
+  }
+  function saveUrl(url) {
+    GM_setValue(STORAGE_URL_KEY, url);
+  }
 
-    function promptForUrl() {
-        const url = prompt(
-            'Chat Helper - Setup\n\nEnter your template JSON URL:\n(JSON array with category, title, content fields)'
-        );
-        if (url?.trim()) { templateUrl = url.trim(); saveUrl(templateUrl); return true; }
-        return false;
+  // Prompt user for the template URL on first run
+  function promptForUrl() {
+    const url = prompt(
+      "Chat Helper - Setup\n\nEnter your template JSON URL:\n(JSON array with category, title, content fields)",
+    );
+    if (url?.trim()) {
+      templateUrl = url.trim();
+      saveUrl(templateUrl);
+      return true;
     }
+    return false;
+  }
 
-    function initTemplateUrl() {
-        const stored = getStoredUrl();
-        if (stored) { templateUrl = stored; return true; }
-        return promptForUrl();
+  // Initialize the template URL from storage or prompt
+  function initTemplateUrl() {
+    const stored = getStoredUrl();
+    if (stored) {
+      templateUrl = stored;
+      return true;
     }
+    return promptForUrl();
+  }
 
-    let urlModalVisible = false;
-    let currentUrlModal = null;
+  // Modal for editing the template URL (inline edit)
+  let urlModalVisible = false;
+  let currentUrlModal = null;
 
-    function showUrlEditModal() {
-        if (currentUrlModal) currentUrlModal.remove();
-        const backdrop = document.createElement('div');
-        backdrop.className = 'ch-url-backdrop';
-        const modal = document.createElement('div');
-        modal.className = 'ch-url-modal';
-        modal.innerHTML = `
+  function showUrlEditModal() {
+    if (currentUrlModal) currentUrlModal.remove();
+    const backdrop = document.createElement("div");
+    backdrop.className = "ch-url-backdrop";
+    const modal = document.createElement("div");
+    modal.className = "ch-url-modal";
+    modal.innerHTML = `
             <div class="ch-url-header">
                 <span>Edit Template URL</span>
                 <button class="ch-url-close">${ICONS.close}</button>
             </div>
             <div class="ch-url-body">
                 <label>Template JSON URL:</label>
-                <input type="text" class="ch-url-input" value="${escapeHtml(templateUrl || '')}" placeholder="https://.../templates.json">
+                <input type="text" class="ch-url-input" value="${escapeHtml(templateUrl || "")}" placeholder="https://.../templates.json">
                 <div class="ch-url-hint">Supports Gist Raw, GitHub Raw, or any accessible JSON endpoint</div>
             </div>
             <div class="ch-url-footer">
@@ -95,256 +129,327 @@
                 <button class="ch-url-save">Save & Reload</button>
             </div>
         `;
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
-        urlModalVisible = true;
-        currentUrlModal = backdrop;
-        const input = modal.querySelector('.ch-url-input');
-        input.focus();
-        input.select();
-        modal.querySelector('.ch-url-close').onclick = () => closeUrlModal();
-        modal.querySelector('.ch-url-cancel').onclick = () => closeUrlModal();
-        backdrop.onclick = (e) => { if (e.target === backdrop) closeUrlModal(); };
-        modal.querySelector('.ch-url-save').onclick = () => {
-            const newUrl = input.value.trim();
-            if (newUrl && newUrl !== templateUrl) {
-                templateUrl = newUrl;
-                saveUrl(templateUrl);
-                GM_setValue(STORAGE_CACHE_KEY, null);
-                closeUrlModal();
-                showToast('URL updated, reloading...');
-                setTimeout(() => location.reload(), 1500);
-            } else if (!newUrl) {
-                showToast('URL cannot be empty');
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+    urlModalVisible = true;
+    currentUrlModal = backdrop;
+    const input = modal.querySelector(".ch-url-input");
+    input.focus();
+    input.select();
+    modal.querySelector(".ch-url-close").onclick = () => closeUrlModal();
+    modal.querySelector(".ch-url-cancel").onclick = () => closeUrlModal();
+    backdrop.onclick = (e) => {
+      if (e.target === backdrop) closeUrlModal();
+    };
+    modal.querySelector(".ch-url-save").onclick = () => {
+      const newUrl = input.value.trim();
+      if (newUrl && newUrl !== templateUrl) {
+        templateUrl = newUrl;
+        saveUrl(templateUrl);
+        GM_setValue(STORAGE_CACHE_KEY, null);
+        closeUrlModal();
+        showToast("URL updated, reloading...");
+        setTimeout(() => location.reload(), 1500);
+      } else if (!newUrl) {
+        showToast("URL cannot be empty");
+      } else {
+        closeUrlModal();
+      }
+    };
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        modal.querySelector(".ch-url-save").click();
+      }
+    });
+  }
+
+  function closeUrlModal() {
+    if (currentUrlModal) currentUrlModal.remove();
+    currentUrlModal = null;
+    urlModalVisible = false;
+  }
+
+  // ==================== PLATFORM & INPUT HANDLING ====================
+  // Detect current platform based on URL
+  function getCurrentSite() {
+    for (let site of SITES) {
+      if (site.match.test(location.href)) return site;
+    }
+    return { name: "Generic", inputBox: "textarea", waitFor: "body" };
+  }
+
+  // Find the chat input box using platform-specific selectors
+  function getInputBox() {
+    if (!currentSite) currentSite = getCurrentSite();
+    for (let sel of currentSite.inputBox.split(",")) {
+      let el = document.querySelector(sel.trim());
+      if (
+        el &&
+        (el.tagName === "TEXTAREA" ||
+          el.tagName === "INPUT" ||
+          el.isContentEditable)
+      )
+        return el;
+    }
+    return null;
+  }
+
+  // Fill the input box with text, handling React-controlled components
+  function fillInputBox(text) {
+    let input = getInputBox();
+    if (!input) {
+      copyToClipboard(text);
+      showToast("Input box not found");
+      return;
+    }
+    try {
+      if (input.tagName === "TEXTAREA") {
+        let setter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value",
+        )?.set;
+        setter ? setter.call(input, text) : (input.value = text);
+      } else if (input.tagName === "INPUT") {
+        input.value = text;
+      } else if (input.isContentEditable) {
+        input.innerText = text;
+      } else {
+        input.value = text;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.focus();
+      showToast(`✓ Filled into ${currentSite.name}`);
+    } catch (e) {
+      copyToClipboard(text);
+    }
+  }
+
+  // Copy text to clipboard using GM_setClipboard
+  function copyToClipboard(text) {
+    GM_setClipboard(text, "text");
+    showToast("Copied ✓");
+  }
+
+  // Show a floating toast notification (auto-dismiss after 2s)
+  function showToast(msg) {
+    let t = document.querySelector(".ch-toast");
+    if (t) t.remove();
+    let toast = document.createElement("div");
+    toast.className = "ch-toast";
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  }
+
+  // ==================== TEMPLATE LOADING (supports new format) ====================
+  // Save templates and categories to cache
+  function saveToCache(data) {
+    GM_setValue(STORAGE_CACHE_KEY, JSON.stringify(data));
+    GM_setValue(STORAGE_CACHE_TIME_KEY, Date.now());
+  }
+
+  // Load templates from cache, handling both old and new formats
+  function loadFromCache() {
+    let cached = GM_getValue(STORAGE_CACHE_KEY);
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        // New format: { version, metadata, data: { categories, templates } }
+        if (
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data) &&
+          data.data
+        ) {
+          templates = data.data.templates || [];
+          if (data.data.categories) {
+            categoryOrder = data.data.categories;
+            GM_setValue(
+              STORAGE_CATEGORY_ORDER_KEY,
+              JSON.stringify(categoryOrder),
+            );
+          }
+        } else if (Array.isArray(data)) {
+          // Old format: direct array
+          templates = data;
+        } else {
+          templates = [];
+        }
+        return true;
+      } catch (e) {
+        console.error("Chat Helper: Failed to parse cache", e);
+      }
+    }
+    return false;
+  }
+
+  // Fetch templates from remote URL (with cache-busting timestamp)
+  function loadFromRemote(callback, silent = false) {
+    if (!templateUrl) {
+      if (!silent) showToast("Set template URL first");
+      callback?.();
+      return;
+    }
+    GM_xmlhttpRequest({
+      method: "GET",
+      url: `${templateUrl}?_t=${Date.now()}`,
+      headers: { "Cache-Control": "no-cache" },
+      onload: (resp) => {
+        if (resp.status === 200) {
+          try {
+            const data = JSON.parse(resp.responseText);
+            // New format: { version, metadata, data: { categories, templates } }
+            if (
+              data &&
+              typeof data === "object" &&
+              !Array.isArray(data) &&
+              data.data
+            ) {
+              templates = data.data.templates || [];
+              if (data.data.categories) {
+                categoryOrder = data.data.categories;
+                GM_setValue(
+                  STORAGE_CATEGORY_ORDER_KEY,
+                  JSON.stringify(categoryOrder),
+                );
+              }
+            } else if (Array.isArray(data)) {
+              // Old format: direct array
+              templates = data;
             } else {
-                closeUrlModal();
+              throw new Error("Invalid data format");
             }
-        };
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                modal.querySelector('.ch-url-save').click();
-            }
-        });
-    }
-
-    function closeUrlModal() {
-        if (currentUrlModal) currentUrlModal.remove();
-        currentUrlModal = null;
-        urlModalVisible = false;
-    }
-
-    // ==================== PLATFORM & INPUT ====================
-    function getCurrentSite() {
-        for (let site of SITES) {
-            if (site.match.test(location.href)) return site;
-        }
-        return { name: 'Generic', inputBox: 'textarea', waitFor: 'body' };
-    }
-
-    function getInputBox() {
-        if (!currentSite) currentSite = getCurrentSite();
-        for (let sel of currentSite.inputBox.split(',')) {
-            let el = document.querySelector(sel.trim());
-            if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable)) return el;
-        }
-        return null;
-    }
-
-    function fillInputBox(text) {
-        let input = getInputBox();
-        if (!input) { copyToClipboard(text); showToast('Input box not found'); return; }
-        try {
-            if (input.tagName === 'TEXTAREA') {
-                let setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-                setter ? setter.call(input, text) : (input.value = text);
-            } else if (input.tagName === 'INPUT') {
-                input.value = text;
-            } else if (input.isContentEditable) {
-                input.innerText = text;
-            } else {
-                input.value = text;
-            }
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            input.focus();
-            showToast(`✓ Filled into ${currentSite.name}`);
-        } catch(e) { copyToClipboard(text); }
-    }
-
-    function copyToClipboard(text) { GM_setClipboard(text, 'text'); showToast('Copied ✓'); }
-
-    function showToast(msg) {
-        let t = document.querySelector('.ch-toast');
-        if (t) t.remove();
-        let toast = document.createElement('div');
-        toast.className = 'ch-toast';
-        toast.innerText = msg;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2000);
-    }
-
-    // ==================== TEMPLATE LOADING (支持新版格式) ====================
-    function saveToCache(data) {
-        GM_setValue(STORAGE_CACHE_KEY, JSON.stringify(data));
-        GM_setValue(STORAGE_CACHE_TIME_KEY, Date.now());
-    }
-
-    function loadFromCache() {
-        let cached = GM_getValue(STORAGE_CACHE_KEY);
-        if (cached) {
-            try {
-                const data = JSON.parse(cached);
-                // 新版格式: { version, metadata, data: { categories, templates } }
-                if (data && typeof data === 'object' && !Array.isArray(data) && data.data) {
-                    templates = data.data.templates || [];
-                    if (data.data.categories) {
-                        categoryOrder = data.data.categories;
-                        GM_setValue(STORAGE_CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
-                    }
-                } else if (Array.isArray(data)) {
-                    // 旧版格式: 直接是数组
-                    templates = data;
-                } else {
-                    templates = [];
-                }
-                return true;
-            } catch (e) {
-                console.error('Chat Helper: Failed to parse cache', e);
-            }
-        }
-        return false;
-    }
-
-    function loadFromRemote(callback, silent = false) {
-        if (!templateUrl) {
-            if (!silent) showToast('Set template URL first');
+            saveToCache({ data: { templates, categories: categoryOrder } });
+            if (!silent) showToast("Templates updated ✓");
             callback?.();
             return;
-        }
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: `${templateUrl}?_t=${Date.now()}`,
-            headers: { 'Cache-Control': 'no-cache' },
-            onload: (resp) => {
-                if (resp.status === 200) {
-                    try {
-                        const data = JSON.parse(resp.responseText);
-                        // 新版格式: { version, metadata, data: { categories, templates } }
-                        if (data && typeof data === 'object' && !Array.isArray(data) && data.data) {
-                            templates = data.data.templates || [];
-                            if (data.data.categories) {
-                                categoryOrder = data.data.categories;
-                                GM_setValue(STORAGE_CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
-                            }
-                        } else if (Array.isArray(data)) {
-                            // 旧版格式: 直接是数组
-                            templates = data;
-                        } else {
-                            throw new Error('Invalid data format');
-                        }
-                        saveToCache({ data: { templates, categories: categoryOrder } });
-                        if (!silent) showToast('Templates updated ✓');
-                        callback?.();
-                        return;
-                    } catch (e) {
-                        if (!silent) showToast('Invalid JSON');
-                        console.error('Chat Helper: Invalid JSON response', e);
-                        callback?.();
-                        return;
-                    }
-                } else {
-                    if (!silent) showToast(`HTTP ${resp.status}`);
-                    console.error('Chat Helper: HTTP error', resp.status);
-                    callback?.();
-                }
-            },
-            onerror: (err) => {
-                if (!silent) showToast('Network error');
-                console.error('Chat Helper: Network error', err);
-                callback?.();
-            },
-        });
-    }
-
-    function initTemplates(callback) {
-        // 先尝试从存储加载分类顺序
-        const orderStr = GM_getValue(STORAGE_CATEGORY_ORDER_KEY, null);
-        if (orderStr) {
-            try { categoryOrder = JSON.parse(orderStr); } catch(e) {}
-        }
-        if (loadFromCache()) {
+          } catch (e) {
+            if (!silent) showToast("Invalid JSON");
+            console.error("Chat Helper: Invalid JSON response", e);
             callback?.();
-            loadFromRemote(() => {}, true);
+            return;
+          }
         } else {
-            loadFromRemote(callback);
+          if (!silent) showToast(`HTTP ${resp.status}`);
+          console.error("Chat Helper: HTTP error", resp.status);
+          callback?.();
         }
+      },
+      onerror: (err) => {
+        if (!silent) showToast("Network error");
+        console.error("Chat Helper: Network error", err);
+        callback?.();
+      },
+    });
+  }
+
+  // Initialize templates: try cache first, then remote
+  function initTemplates(callback) {
+    // Load category order from storage if present
+    const orderStr = GM_getValue(STORAGE_CATEGORY_ORDER_KEY, null);
+    if (orderStr) {
+      try {
+        categoryOrder = JSON.parse(orderStr);
+      } catch (e) {}
     }
-
-    function refreshTemplates(callback) {
-        loadFromRemote(() => {
-            refreshModalUI();
-            callback?.();
-        }, false);
+    if (loadFromCache()) {
+      callback?.();
+      loadFromRemote(() => {}, true); // silent background update
+    } else {
+      loadFromRemote(callback);
     }
+  }
 
-    // ==================== UI HELPERS ====================
-    function escapeHtml(s) {
-        return s?.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]) || '';
-    }
+  // Manual refresh from remote (with user feedback)
+  function refreshTemplates(callback) {
+    loadFromRemote(() => {
+      refreshModalUI();
+      callback?.();
+    }, false);
+  }
 
-    // 获取分类列表（按 JSON 中定义的 order 排序）
-    function getCategories() {
-        const categories = [...new Set(templates.map((t) => {
-            // 新版: 使用 categoryId，旧版: 使用 category
-            return t.categoryId || t.category;
-        }))].filter(Boolean);
+  // ==================== UI HELPERS ====================
+  function escapeHtml(s) {
+    return (
+      s?.replace(
+        /[&<>]/g,
+        (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[m],
+      ) || ""
+    );
+  }
 
-        if (categoryOrder && categoryOrder.length > 0) {
-            // 按 order 排序
-            const ordered = [];
-            const rest = [];
-            // 先按 categoryOrder 中的顺序添加
-            for (const catDef of categoryOrder) {
-                const catName = catDef.name || catDef;
-                if (categories.includes(catName)) {
-                    ordered.push(catName);
-                }
-            }
-            // 未在 categoryOrder 中的分类追加到末尾
-            for (const cat of categories) {
-                const inOrder = categoryOrder.some(c => (c.name || c) === cat);
-                if (!inOrder) {
-                    rest.push(cat);
-                }
-            }
-            rest.sort();
-            return [...ordered, ...rest];
+  // ==================== CORE: getCategories (fix ordering) ====================
+  // Returns the list of category names in the order defined by categoryOrder.
+  // If a category is not in categoryOrder, it is appended at the end alphabetically.
+  function getCategories() {
+    // Extract all category IDs from templates (new: categoryId, old: category)
+    const ids = [
+      ...new Set(templates.map((t) => t.categoryId || t.category)),
+    ].filter(Boolean);
+
+    if (categoryOrder && categoryOrder.length > 0) {
+      // Build id -> name mapping
+      const idToName = {};
+      categoryOrder.forEach((c) => {
+        idToName[c.id] = c.name || c.id;
+      });
+
+      const ordered = [];
+      const rest = [];
+
+      // Add categories in the order defined in categoryOrder
+      for (const catDef of categoryOrder) {
+        if (ids.includes(catDef.id)) {
+          ordered.push(idToName[catDef.id]); // use the display name
         }
-        return categories.sort();
+      }
+
+      // Append categories not in categoryOrder, sorted alphabetically
+      for (const id of ids) {
+        if (!categoryOrder.some((c) => c.id === id)) {
+          rest.push(id);
+        }
+      }
+      rest.sort();
+      const restNames = rest.map((id) => idToName[id] || id);
+
+      return [...ordered, ...restNames];
     }
 
-    // 获取分类显示名称
-    function getCategoryDisplayName(catId) {
-        if (!categoryOrder || categoryOrder.length === 0) return catId;
-        const found = categoryOrder.find(c => (c.name || c) === catId);
-        return found?.name || found || catId;
-    }
+    // Fallback to alphabetical order if no categoryOrder defined
+    return ids.sort();
+  }
 
-    function getTemplatesByCategory(cat) {
-        return templates.filter((t) => {
-            const tCat = t.categoryId || t.category;
-            return tCat === cat;
-        });
-    }
+  // Get display name for a category ID
+  function getCategoryDisplayName(catId) {
+    if (!categoryOrder || categoryOrder.length === 0) return catId;
+    const found = categoryOrder.find((c) => c.id === catId || c.name === catId);
+    return found?.name || found?.id || catId;
+  }
 
-    function onTemplateClick(content) {
-        if (AUTO_FILL) fillInputBox(content);
-        else copyToClipboard(content);
-        closeModal();
-    }
+  // Get templates that belong to a given category (by name or ID)
+  function getTemplatesByCategory(cat) {
+    return templates.filter((t) => {
+      const tCat = t.categoryId || t.category;
+      // If cat is a display name, try to match by name; otherwise match by id
+      const matched = categoryOrder.find((c) => c.name === cat);
+      if (matched) {
+        return tCat === matched.id || tCat === matched.name;
+      }
+      return tCat === cat;
+    });
+  }
 
-    // ==================== MATERIAL UI ====================
-    GM_addStyle(`
+  // Handle template click: fill input or copy to clipboard
+  function onTemplateClick(content) {
+    if (AUTO_FILL) fillInputBox(content);
+    else copyToClipboard(content);
+    closeModal();
+  }
+
+  // ==================== MATERIAL UI (styles and rendering) ====================
+  GM_addStyle(`
         .ch-fab{position:fixed!important;bottom:24px!important;right:24px!important;width:56px!important;height:56px!important;border-radius:28px!important;background:#6750A4!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;z-index:999999!important;box-shadow:0 4px 8px rgba(0,0,0,.15)!important;transition:.2s!important}.ch-fab:hover{background:#7F67BE!important;transform:scale(1.02)!important}
         .ch-dialog-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);z-index:100000;display:flex;align-items:center;justify-content:center}
         .ch-dialog{background:#fff;width:880px;max-width:90vw;height:600px;max-height:80vh;border-radius:20px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 48px rgba(0,0,0,.2);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto}
@@ -384,192 +489,218 @@
         .ch-url-save{background:#6750A4;color:#fff}.ch-url-save:hover{background:#7F67BE}
     `);
 
-    let categoriesContainer, templatesContainer;
+  let categoriesContainer, templatesContainer;
 
-    function renderCategories() {
-        let cats = getCategories();
-        categoriesContainer.innerHTML = cats.length ? '' : '<div class="ch-empty">No categories</div>';
-        cats.forEach((cat) => {
-            let div = document.createElement('div');
-            div.className = `ch-category-item${cat === currentCategory ? ' active' : ''}`;
-            const displayName = getCategoryDisplayName(cat);
-            div.innerHTML = `<span>${escapeHtml(displayName)}</span><span class="ch-cat-chevron">${ICONS.chevron}</span>`;
-            div.onclick = () => {
-                currentCategory = cat;
-                renderCategories();
-                renderTemplates();
-            };
-            categoriesContainer.appendChild(div);
-        });
-    }
+  // Render the category list in the left sidebar
+  function renderCategories() {
+    let cats = getCategories();
+    categoriesContainer.innerHTML = cats.length
+      ? ""
+      : '<div class="ch-empty">No categories</div>';
+    cats.forEach((cat) => {
+      let div = document.createElement("div");
+      div.className = `ch-category-item${cat === currentCategory ? " active" : ""}`;
+      const displayName = getCategoryDisplayName(cat);
+      div.innerHTML = `<span>${escapeHtml(displayName)}</span><span class="ch-cat-chevron">${ICONS.chevron}</span>`;
+      div.onclick = () => {
+        currentCategory = cat;
+        renderCategories();
+        renderTemplates();
+      };
+      categoriesContainer.appendChild(div);
+    });
+  }
 
-    function renderTemplates() {
-        let items = getTemplatesByCategory(currentCategory);
-        templatesContainer.innerHTML = items.length ? '' : `
+  // Render the template cards in the right panel
+  function renderTemplates() {
+    let items = getTemplatesByCategory(currentCategory);
+    templatesContainer.innerHTML = items.length
+      ? ""
+      : `
             <div class="ch-empty">${ICONS.empty}<div>No templates, click refresh</div></div>
         `;
-        items.forEach((tpl) => {
-            let div = document.createElement('div');
-            div.className = 'ch-template-item';
-            div.innerHTML = `
+    items.forEach((tpl) => {
+      let div = document.createElement("div");
+      div.className = "ch-template-item";
+      div.innerHTML = `
                 <div class="ch-template-title">${escapeHtml(tpl.title)}</div>
                 <div class="ch-template-content">${escapeHtml(tpl.content)}</div>
             `;
-            div.onclick = () => onTemplateClick(tpl.content);
-            templatesContainer.appendChild(div);
-        });
-    }
-
-    function refreshModalUI() {
-        let cats = getCategories();
-        if (cats.length && (!currentCategory || !cats.includes(currentCategory))) {
-            currentCategory = cats[0];
-        }
-        renderCategories();
-        renderTemplates();
-        let urlDisplay = document.querySelector('.ch-url-display');
-        if (urlDisplay) {
-            let displayUrl = templateUrl || 'No URL set';
-            urlDisplay.title = displayUrl;
-            urlDisplay.textContent = displayUrl.length > 55 ? displayUrl.substring(0, 52) + '...' : displayUrl;
-        }
-        let cacheInfo = document.querySelector('.ch-cache-info');
-        if (cacheInfo) {
-            let cacheTime = GM_getValue(STORAGE_CACHE_TIME_KEY, 0);
-            cacheInfo.textContent = cacheTime ? new Date(cacheTime).toLocaleString() : 'No cache';
-        }
-    }
-
-    function buildModal() {
-        let backdrop = document.createElement('div');
-        backdrop.className = 'ch-dialog-backdrop';
-        let dialog = document.createElement('div');
-        dialog.className = 'ch-dialog';
-
-        let header = document.createElement('div');
-        header.className = 'ch-dialog-header';
-        let title = document.createElement('span');
-        title.className = 'ch-dialog-title';
-        title.textContent = 'Chat Helper';
-        let closeBtn = document.createElement('button');
-        closeBtn.className = 'ch-dialog-close';
-        closeBtn.innerHTML = ICONS.close;
-        closeBtn.onclick = closeModal;
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-
-        let body = document.createElement('div');
-        body.className = 'ch-dialog-body';
-        categoriesContainer = document.createElement('div');
-        categoriesContainer.className = 'ch-categories';
-        templatesContainer = document.createElement('div');
-        templatesContainer.className = 'ch-templates';
-        body.append(categoriesContainer, templatesContainer);
-
-        let footer = document.createElement('div');
-        footer.className = 'ch-dialog-footer';
-        let footerLeft = document.createElement('div');
-        footerLeft.className = 'ch-footer-left';
-        let footerRight = document.createElement('div');
-        footerRight.className = 'ch-footer-right';
-
-        let changeUrlBtn = document.createElement('button');
-        changeUrlBtn.className = 'ch-settings-btn';
-        changeUrlBtn.innerHTML = `${ICONS.settings} Change URL`;
-        changeUrlBtn.onclick = (e) => { e.stopPropagation(); showUrlEditModal(); };
-
-        let refreshBtn = document.createElement('button');
-        refreshBtn.className = 'ch-refresh-btn';
-        refreshBtn.innerHTML = `${ICONS.refresh} Refresh`;
-        refreshBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (confirm('Refresh from remote?')) {
-                refreshBtn.disabled = true;
-                refreshBtn.innerHTML = `${ICON_SPINNER} Loading...`;
-                refreshTemplates(() => {
-                    refreshBtn.disabled = false;
-                    refreshBtn.innerHTML = `${ICONS.refresh} Refresh`;
-                });
-            }
-        };
-
-        let urlDisplay = document.createElement('span');
-        urlDisplay.className = 'ch-url-display';
-        let displayUrl = templateUrl || 'No URL set';
-        urlDisplay.title = displayUrl;
-        urlDisplay.textContent = displayUrl.length > 55 ? displayUrl.substring(0, 52) + '...' : displayUrl;
-
-        let cacheTime = GM_getValue(STORAGE_CACHE_TIME_KEY, 0);
-        let cacheSpan = document.createElement('span');
-        cacheSpan.className = 'ch-cache-info';
-        cacheSpan.textContent = cacheTime ? new Date(cacheTime).toLocaleString() : 'No cache';
-
-        footerLeft.appendChild(changeUrlBtn);
-        footerLeft.appendChild(refreshBtn);
-        footerLeft.appendChild(urlDisplay);
-        footerRight.appendChild(cacheSpan);
-        footer.appendChild(footerLeft);
-        footer.appendChild(footerRight);
-
-        dialog.append(header, body, footer);
-        backdrop.appendChild(dialog);
-
-        let cats = getCategories();
-        if (cats.length) currentCategory = cats[0];
-        renderCategories();
-        renderTemplates();
-
-        backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
-        return backdrop;
-    }
-
-    function openModal() {
-        if (currentModal) closeModal();
-        currentModal = buildModal();
-        document.body.appendChild(currentModal);
-        modalVisible = true;
-    }
-
-    function closeModal() {
-        if (currentModal) currentModal.remove();
-        currentModal = null;
-        modalVisible = false;
-    }
-
-    // ==================== INIT ====================
-    function initUI() {
-        if (document.querySelector('.ch-fab')) return;
-        let fab = document.createElement('div');
-        fab.className = 'ch-fab';
-        fab.innerHTML = ICONS.fab;
-        fab.title = 'Chat Helper';
-        fab.onclick = () => openModal();
-        document.body.appendChild(fab);
-        console.log('Chat Helper started');
-    }
-
-    function waitForPage() {
-        currentSite = getCurrentSite();
-        let check = () => {
-            if (document.querySelector(currentSite.waitFor || 'body') && document.body) {
-                if (initTemplateUrl()) {
-                    initTemplates(() => initUI());
-                } else {
-                    console.warn('No template URL');
-                    initUI();
-                }
-            } else {
-                setTimeout(check, 300);
-            }
-        };
-        check();
-    }
-
-    waitForPage();
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (urlModalVisible) closeUrlModal();
-            else if (modalVisible) closeModal();
-        }
+      div.onclick = () => onTemplateClick(tpl.content);
+      templatesContainer.appendChild(div);
     });
+  }
+
+  // Refresh the entire modal UI (after data update)
+  function refreshModalUI() {
+    let cats = getCategories();
+    if (cats.length && (!currentCategory || !cats.includes(currentCategory))) {
+      currentCategory = cats[0];
+    }
+    renderCategories();
+    renderTemplates();
+    let urlDisplay = document.querySelector(".ch-url-display");
+    if (urlDisplay) {
+      let displayUrl = templateUrl || "No URL set";
+      urlDisplay.title = displayUrl;
+      urlDisplay.textContent =
+        displayUrl.length > 55
+          ? displayUrl.substring(0, 52) + "..."
+          : displayUrl;
+    }
+    let cacheInfo = document.querySelector(".ch-cache-info");
+    if (cacheInfo) {
+      let cacheTime = GM_getValue(STORAGE_CACHE_TIME_KEY, 0);
+      cacheInfo.textContent = cacheTime
+        ? new Date(cacheTime).toLocaleString()
+        : "No cache";
+    }
+  }
+
+  // Build the modal DOM structure and attach event listeners
+  function buildModal() {
+    let backdrop = document.createElement("div");
+    backdrop.className = "ch-dialog-backdrop";
+    let dialog = document.createElement("div");
+    dialog.className = "ch-dialog";
+
+    let header = document.createElement("div");
+    header.className = "ch-dialog-header";
+    let title = document.createElement("span");
+    title.className = "ch-dialog-title";
+    title.textContent = "Chat Helper";
+    let closeBtn = document.createElement("button");
+    closeBtn.className = "ch-dialog-close";
+    closeBtn.innerHTML = ICONS.close;
+    closeBtn.onclick = closeModal;
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    let body = document.createElement("div");
+    body.className = "ch-dialog-body";
+    categoriesContainer = document.createElement("div");
+    categoriesContainer.className = "ch-categories";
+    templatesContainer = document.createElement("div");
+    templatesContainer.className = "ch-templates";
+    body.append(categoriesContainer, templatesContainer);
+
+    let footer = document.createElement("div");
+    footer.className = "ch-dialog-footer";
+    let footerLeft = document.createElement("div");
+    footerLeft.className = "ch-footer-left";
+    let footerRight = document.createElement("div");
+    footerRight.className = "ch-footer-right";
+
+    let changeUrlBtn = document.createElement("button");
+    changeUrlBtn.className = "ch-settings-btn";
+    changeUrlBtn.innerHTML = `${ICONS.settings} Change URL`;
+    changeUrlBtn.onclick = (e) => {
+      e.stopPropagation();
+      showUrlEditModal();
+    };
+
+    let refreshBtn = document.createElement("button");
+    refreshBtn.className = "ch-refresh-btn";
+    refreshBtn.innerHTML = `${ICONS.refresh} Refresh`;
+    refreshBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm("Refresh from remote?")) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = `${ICON_SPINNER} Loading...`;
+        refreshTemplates(() => {
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = `${ICONS.refresh} Refresh`;
+        });
+      }
+    };
+
+    let urlDisplay = document.createElement("span");
+    urlDisplay.className = "ch-url-display";
+    let displayUrl = templateUrl || "No URL set";
+    urlDisplay.title = displayUrl;
+    urlDisplay.textContent =
+      displayUrl.length > 55 ? displayUrl.substring(0, 52) + "..." : displayUrl;
+
+    let cacheTime = GM_getValue(STORAGE_CACHE_TIME_KEY, 0);
+    let cacheSpan = document.createElement("span");
+    cacheSpan.className = "ch-cache-info";
+    cacheSpan.textContent = cacheTime
+      ? new Date(cacheTime).toLocaleString()
+      : "No cache";
+
+    footerLeft.appendChild(changeUrlBtn);
+    footerLeft.appendChild(refreshBtn);
+    footerLeft.appendChild(urlDisplay);
+    footerRight.appendChild(cacheSpan);
+    footer.appendChild(footerLeft);
+    footer.appendChild(footerRight);
+
+    dialog.append(header, body, footer);
+    backdrop.appendChild(dialog);
+
+    let cats = getCategories();
+    if (cats.length) currentCategory = cats[0];
+    renderCategories();
+    renderTemplates();
+
+    backdrop.onclick = (e) => {
+      if (e.target === backdrop) closeModal();
+    };
+    return backdrop;
+  }
+
+  function openModal() {
+    if (currentModal) closeModal();
+    currentModal = buildModal();
+    document.body.appendChild(currentModal);
+    modalVisible = true;
+  }
+
+  function closeModal() {
+    if (currentModal) currentModal.remove();
+    currentModal = null;
+    modalVisible = false;
+  }
+
+  // ==================== INITIALIZATION ====================
+  // Create the floating action button and start the script
+  function initUI() {
+    if (document.querySelector(".ch-fab")) return;
+    let fab = document.createElement("div");
+    fab.className = "ch-fab";
+    fab.innerHTML = ICONS.fab;
+    fab.title = "Chat Helper";
+    fab.onclick = () => openModal();
+    document.body.appendChild(fab);
+    console.log("Chat Helper started");
+  }
+
+  // Wait for the page to load before initializing
+  function waitForPage() {
+    currentSite = getCurrentSite();
+    let check = () => {
+      if (
+        document.querySelector(currentSite.waitFor || "body") &&
+        document.body
+      ) {
+        if (initTemplateUrl()) {
+          initTemplates(() => initUI());
+        } else {
+          console.warn("No template URL");
+          initUI();
+        }
+      } else {
+        setTimeout(check, 300);
+      }
+    };
+    check();
+  }
+
+  waitForPage();
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (urlModalVisible) closeUrlModal();
+      else if (modalVisible) closeModal();
+    }
+  });
 })();
