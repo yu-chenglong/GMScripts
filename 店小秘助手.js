@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DianXiaoMi Helper
 // @namespace    https://github.com/yu-chenglong/GMScripts
-// @version      1.0.0
+// @version      1.0.2
 // @description  DianXiaoMi Helper
 // @author       Yu Chenglong
 // @match        https://www.dianxiaomi.com/*
@@ -11,50 +11,16 @@
 // @downloadURL  https://raw.githubusercontent.com/yu-chenglong/GMScripts/master/店小秘助手.js
 // ==/UserScript==
 
-
 (function () {
-    'use strict';
-    // 固定区
-    // 配置区
+  "use strict";
 
-    // 工具函数区
-    const utils = {
-        log: (msg) => {
-            GM_log(`[店小秘助手] ${msg}`);
-        },
-        copyToClipboard: async (text) => {
-            try {
-                await navigator.clipboard.writeText(text);
-                return true;
-            } catch (err) {
-                console.error('复制失败:', err);
-                return false;
-            }
-        },
-        waitElement: (selector, timeout = 5000) => {
-            return new Promise((resolve, reject) => {
-                const interval = 100;
-                let elapsedTime = 0;
-                const timer = setInterval(() => {
-                    const element = document.querySelector(selector);
-                    if (element) {
-                        clearInterval(timer);
-                        resolve(element);
-                    } else if (elapsedTime >= timeout) {
-                        clearInterval(timer);
-                        reject(new Error('元素未找到: ' + selector));
-                    }   else {
-                        elapsedTime += interval;
-                    }
-                }, interval);
-            });        
-        }
-    };
-    // 功能实现区
-    // 初始化执行区」
-    
+  // ==================== Config ====================
+  // Only bind to lazy-loaded images.
+  // Vue lazy-load components mark completed images with lazy="loaded".
+  const IMG_SELECTOR = 'img[lazy="loaded"]';
 
-    GM_addStyle(`
+  // ==================== Style ====================
+  GM_addStyle(`
         #img-copy-tip {
             position: fixed;
             z-index: 99999999;
@@ -73,80 +39,74 @@
         }
     `);
 
-    const createTipBox = () => {
-        let tipBox = document.getElementById('img-copy-tip');
-        if (!tipBox) {
-            tipBox = document.createElement('div');
-            tipBox.id = 'img-copy-tip';
-            tipBox.textContent = '✅ 复制成功！';
-            document.body.appendChild(tipBox);
-        }
-        return tipBox;
-    };
-    const tipBox = createTipBox();
+  // ==================== Tip Box ====================
+  // Create (or reuse) the toast element once and reuse it for every copy
+  let tipBox = document.getElementById("img-copy-tip");
+  if (!tipBox) {
+    tipBox = document.createElement("div");
+    tipBox.id = "img-copy-tip";
+    tipBox.textContent = "✅ 复制成功！";
+    document.body.appendChild(tipBox);
+  }
 
-    const copyToClipboard = async (text) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch (err) {
-            console.error('复制失败:', err);
-            return false;
-        }
-    };
+  let tipTimer = null;
+  const showTip = (x, y) => {
+    tipBox.style.left = `${x + 10}px`;
+    tipBox.style.top = `${y + 10}px`;
+    tipBox.classList.add("show");
+    // Reset the previous timer to avoid stacking on rapid clicks
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => tipBox.classList.remove("show"), 1500);
+  };
 
-    const showTip = (x, y) => {
-        tipBox.style.left = `${x + 10}px`;
-        tipBox.style.top = `${y + 10}px`;
-        tipBox.classList.add('show');
-        setTimeout(() => tipBox.classList.remove('show'), 1500);
-    };
+  // ==================== Helpers ====================
+  // Strip trailing "_tn" (thumbnail suffix) so the original image URL is copied
+  const removeTnSuffix = (url) => {
+    if (typeof url !== "string" || !url) return url;
+    return url.endsWith("_tn") ? url.slice(0, -3) : url;
+  };
 
-    // ✅ 核心新增：移除图片URL末尾的_tn后缀方法
-    const removeTnSuffix = (imgUrl) => {
-        if (typeof imgUrl !== 'string' || !imgUrl) return imgUrl;
-        // 精准匹配URL末尾的 _tn 并移除，不影响其他内容
-        return imgUrl.endsWith('_tn') ? imgUrl.slice(0, -3) : imgUrl;
-    };
+  // Copy text to clipboard; returns true on success
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      GM_log("[店小秘助手] 复制失败: " + err.message);
+      return false;
+    }
+  };
 
-    const handleImageClick = async (e, img) => {
-        e.preventDefault();
-        e.stopPropagation();
+  // ==================== Click Delegation ====================
+  // Why event delegation instead of MutationObserver + per-node binding?
+  //   1. Works for dynamically inserted images without observing DOM changes
+  //   2. Single listener, no per-element memory overhead
+  //   3. Simpler logic, fewer edge cases
+  document.addEventListener(
+    "click",
+    async (e) => {
+      // Only handle left-click
+      if (e.button !== 0) return;
 
-        let imgUrl = img.src || img.dataset.src || img.getAttribute('data-original') || '';
-        if (!imgUrl) return;
+      // img cannot have children, so matches() is enough (no need for closest())
+      if (!e.target.matches(IMG_SELECTOR)) return;
 
-        // ✅ 关键调用：处理URL，自动移除末尾_tn
-        imgUrl = removeTnSuffix(imgUrl);
-        const formatText = `![|150](${imgUrl})`;
+      // Suppress the page's default action (e.g. opening an image preview)
+      e.preventDefault();
+      e.stopPropagation();
 
-        const isSuccess = await copyToClipboard(formatText);
-        if (isSuccess) {
-            showTip(e.clientX, e.clientY);
-        }
-    };
+      const img = e.target;
+      let imgUrl =
+        img.src || img.dataset.src || img.getAttribute("data-original") || "";
+      if (!imgUrl) return;
 
-    const bindImageClick = (imgElement) => {
-        if (imgElement.dataset.hasBindClick) return;
-        imgElement.addEventListener('click', (e) => handleImageClick(e, imgElement));
-        imgElement.dataset.hasBindClick = 'true';
-    };
+      imgUrl = removeTnSuffix(imgUrl);
+      const formatText = `![|150](${imgUrl})`;
 
-    document.querySelectorAll('img').forEach(img => bindImageClick(img));
-
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach(mutation => {
-            mutation.addedNodes.forEach(node => {
-                if (node.nodeType === 1) {
-                    if (node.tagName === 'IMG') {
-                        bindImageClick(node);
-                    } else {
-                        node.querySelectorAll('img').forEach(img => bindImageClick(img));
-                    }
-                }
-            });
-        });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
+      if (await copyToClipboard(formatText)) {
+        showTip(e.clientX, e.clientY);
+      }
+    },
+    true,
+  ); // Capture phase so we run before page handlers
 })();
